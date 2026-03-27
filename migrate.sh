@@ -32,7 +32,8 @@ _register() {
 }
 
 _init_registry() {
-    local base="${1:-.}"
+    local base
+    base="$(cd "${1:-.}" && pwd -P)"
 
     # env repos
     _register "${base}/env/ros_noetic" "ros_noetic" \
@@ -191,6 +192,46 @@ _update_dockerfile() {
     fi
 
     git -C "${repo_path}" add Dockerfile
+}
+
+_update_readmes() {
+    local repo_path="$1"
+    _log "Updating READMEs (docker_setup_helper → docker_template)"
+
+    for f in "${repo_path}/README.md" "${repo_path}"/doc/README.*.md; do
+        [[ -f "${f}" ]] || continue
+
+        # Replace escaped markdown: docker\_setup\_helper → docker\_template
+        sed -i 's/docker\\_setup\\_helper/docker\\_template/g' "${f}"
+
+        # Replace plain text: docker_setup_helper → docker_template
+        sed -i 's/docker_setup_helper/docker_template/g' "${f}"
+
+        # Fix GitHub org URL: ycpss91255/docker_template → ycpss91255-docker/docker_template
+        sed -i 's|ycpss91255/docker_template|ycpss91255-docker/docker_template|g' "${f}"
+
+        # Update subtree git URL version
+        sed -i "s|docker_template\.git v[0-9.]*|docker_template.git ${TEMPLATE_VERSION}|g" "${f}"
+
+        # Update version in directory tree comment
+        sed -i "s|git subtree (v[0-9.]*)|git subtree (${TEMPLATE_VERSION})|g" "${f}"
+
+        # Remove duplicate main.yaml lines left by sed
+        sed -i '/│   ├── main.yaml.*pipeline\|│   ├── main.yaml.*パイプライン/d' "${f}"
+
+        # Remove old build-worker/release-worker from directory tree
+        sed -i '/│   ├── build-worker.yaml/d' "${f}"
+        sed -i 's|│   └── release-worker.yaml.*|│   └── main.yaml                # CI/CD (docker_template reusable workflows)|' "${f}"
+
+        # Remove old shared test files from directory tree
+        sed -i '/│       ├── script_help.bats/d' "${f}"
+        sed -i '/│       └── test_helper.bash/d' "${f}"
+
+        # Update .docker_setup_helper_version → .docker_template_version
+        sed -i 's/\.docker_setup_helper_version/.docker_template_version/g' "${f}"
+    done
+
+    git -C "${repo_path}" add README.md doc/ 2>/dev/null || true
 }
 
 _generate_main_yaml() {
@@ -352,6 +393,7 @@ _migrate_repo() {
     _add_template_subtree "${repo_path}"
     _create_symlinks "${repo_path}"
     _update_dockerfile "${repo_path}" "${HAS_GUI}"
+    _update_readmes "${repo_path}"
     _generate_main_yaml "${repo_path}" "${IMAGE_NAME}" "${BUILD_ARGS}" "${HAS_RUNTIME}"
     _add_version_file "${repo_path}"
     _commit_migration "${repo_path}"
