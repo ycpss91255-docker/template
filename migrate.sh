@@ -153,14 +153,21 @@ _create_symlinks() {
     cd "${repo_path}"
 
     # Remove original scripts
-    git rm -f build.sh run.sh exec.sh stop.sh .hadolint.yaml 2>/dev/null || true
+    git rm -f build.sh run.sh exec.sh stop.sh 2>/dev/null || true
 
     # Create symlinks for scripts
     ln -sf docker_template/build.sh build.sh
     ln -sf docker_template/run.sh run.sh
     ln -sf docker_template/exec.sh exec.sh
     ln -sf docker_template/stop.sh stop.sh
-    ln -sf docker_template/.hadolint.yaml .hadolint.yaml
+
+    # .hadolint.yaml: symlink for GUI repos, keep custom for repos with extra rules
+    if [[ ! -f .hadolint.yaml ]] || diff -q .hadolint.yaml docker_template/.hadolint.yaml >/dev/null 2>&1; then
+        git rm -f .hadolint.yaml 2>/dev/null || true
+        ln -sf docker_template/.hadolint.yaml .hadolint.yaml
+    else
+        _log "Keeping custom .hadolint.yaml (has extra rules)"
+    fi
 
     # Remove old shared smoke tests (keep repo-specific ones)
     git rm -f test/smoke_test/test_helper.bash 2>/dev/null || true
