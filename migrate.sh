@@ -181,9 +181,14 @@ _update_dockerfile() {
     sed -i 's|docker_setup_helper/src/config|docker_template/config|g' "${dockerfile}"
 
     # Ensure smoke tests are copied from docker_template
-    # Add COPY docker_template/smoke_test/ before COPY test/smoke_test/
     if ! grep -q "docker_template/smoke_test" "${dockerfile}"; then
-        sed -i '/COPY test\/smoke_test\//i COPY docker_template/smoke_test/ /smoke_test/' "${dockerfile}"
+        if [[ "${has_gui}" == "true" ]]; then
+            # GUI repos: copy all shared smoke tests (including display_env.bats)
+            sed -i '/COPY test\/smoke_test\//i COPY docker_template/smoke_test/ /smoke_test/' "${dockerfile}"
+        else
+            # Non-GUI repos: copy only script_help + test_helper (skip display_env.bats)
+            sed -i '/COPY test\/smoke_test\//i COPY docker_template/smoke_test/test_helper.bash /smoke_test/test_helper.bash\nCOPY docker_template/smoke_test/script_help.bats /smoke_test/script_help.bats' "${dockerfile}"
+        fi
     fi
 
     # Ensure compose.yaml is copied to /lint/ (for display_env.bats)
