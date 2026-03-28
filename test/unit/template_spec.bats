@@ -38,31 +38,31 @@ setup() {
 # ════════════════════════════════════════════════════════════════════
 
 @test "ci.sh exists and is executable" {
-    assert [ -f /source/ci.sh ]
-    assert [ -x /source/ci.sh ]
+    assert [ -f /source/scripts/ci.sh ]
+    assert [ -x /source/scripts/ci.sh ]
 }
 
 @test "ci.sh uses set -euo pipefail" {
-    run grep "set -euo pipefail" /source/ci.sh
+    run grep "set -euo pipefail" /source/scripts/ci.sh
     assert_success
 }
 
 @test "Makefile exists" {
-    assert [ -f /source/Makefile ]
+    assert [ -f /source/scripts/Makefile ]
 }
 
 @test "Makefile has test target" {
-    run grep -E '^test:' /source/Makefile
+    run grep -E '^test:' /source/scripts/Makefile
     assert_success
 }
 
 @test "Makefile has lint target" {
-    run grep -E '^lint:' /source/Makefile
+    run grep -E '^lint:' /source/scripts/Makefile
     assert_success
 }
 
 @test "Makefile has clean target" {
-    run grep -E '^clean:' /source/Makefile
+    run grep -E '^clean:' /source/scripts/Makefile
     assert_success
 }
 

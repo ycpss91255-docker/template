@@ -11,6 +11,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd -P)"
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -53,17 +54,18 @@ _install_deps() {
 
 _run_shellcheck() {
     echo "--- Running ShellCheck ---"
+    find "${REPO_ROOT}" -maxdepth 1 -name "*.sh" -print0 | xargs -0 shellcheck -x
     find "${SCRIPT_DIR}" -maxdepth 1 -name "*.sh" -print0 | xargs -0 shellcheck -x
-    shellcheck -x "${SCRIPT_DIR}/config/pip/setup.sh"
-    shellcheck -x "${SCRIPT_DIR}/config/shell/terminator/setup.sh"
-    shellcheck -x "${SCRIPT_DIR}/config/shell/tmux/setup.sh"
+    shellcheck -x "${REPO_ROOT}/config/pip/setup.sh"
+    shellcheck -x "${REPO_ROOT}/config/shell/terminator/setup.sh"
+    shellcheck -x "${REPO_ROOT}/config/shell/tmux/setup.sh"
 }
 
 # ── Bats tests ───────────────────────────────────────────────────────────────
 
 _run_tests() {
     echo "--- Running Bats Unit Tests ---"
-    bats "${SCRIPT_DIR}/test/unit/"
+    bats "${REPO_ROOT}/test/unit/"
 }
 
 # ── Kcov coverage ────────────────────────────────────────────────────────────
@@ -71,10 +73,10 @@ _run_tests() {
 _run_coverage() {
     echo "--- Running Tests with Kcov Coverage ---"
     kcov \
-        --include-path="${SCRIPT_DIR}" \
-        --exclude-path="${SCRIPT_DIR}/test/,${SCRIPT_DIR}/config/shell/bashrc,${SCRIPT_DIR}/config/shell/terminator/config,${SCRIPT_DIR}/config/shell/tmux/tmux.conf,${SCRIPT_DIR}/.github/" \
-        "${SCRIPT_DIR}/coverage" \
-        bats "${SCRIPT_DIR}/test/unit/"
+        --include-path="${REPO_ROOT}" \
+        --exclude-path="${REPO_ROOT}/test/,${REPO_ROOT}/scripts/,${REPO_ROOT}/config/shell/bashrc,${REPO_ROOT}/config/shell/terminator/config,${REPO_ROOT}/config/shell/tmux/tmux.conf,${REPO_ROOT}/.github/" \
+        "${REPO_ROOT}/coverage" \
+        bats "${REPO_ROOT}/test/unit/"
 }
 
 # ── Fix coverage permissions ─────────────────────────────────────────────────
@@ -82,8 +84,8 @@ _run_coverage() {
 _fix_permissions() {
     local uid="${HOST_UID:-}"
     local gid="${HOST_GID:-}"
-    if [[ -n "${uid}" && -n "${gid}" && -d "${SCRIPT_DIR}/coverage" ]]; then
-        chown -R "${uid}:${gid}" "${SCRIPT_DIR}/coverage"
+    if [[ -n "${uid}" && -n "${gid}" && -d "${REPO_ROOT}/coverage" ]]; then
+        chown -R "${uid}:${gid}" "${REPO_ROOT}/coverage"
     fi
 }
 
@@ -118,7 +120,7 @@ main() {
             _run_shellcheck
             _run_coverage
             _fix_permissions
-            echo "Coverage report: ${SCRIPT_DIR}/coverage/index.html"
+            echo "Coverage report: ${REPO_ROOT}/coverage/index.html"
             ;;
         lint)
             # ShellCheck only — requires shellcheck installed locally
