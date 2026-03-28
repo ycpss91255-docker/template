@@ -47,3 +47,22 @@ services:
 ~~方案 B：使用 Docker Compose `include` 合併多個 compose.yaml。~~
 
 **結論**：compose include 會合併同名 service（YAML key 層面），`-p` project name 無法解決。改用 `docker compose config` 展開 + Python 重命名 service 的方式已實作並通過測試。
+
+## v3.0.0 BREAKING CHANGE 待辦
+
+### docker_template → template 改名
+- 所有 consumer repo subtree prefix `docker_template/` → `template/`
+- 腳本路徑引用全部更新
+- CLAUDE.md、README、CI workflows 更新
+
+### setup.sh 移至 script/
+- `docker_template/setup.sh` → `docker_template/script/setup.sh`
+- build.sh/run.sh 呼叫路徑更新
+- 15 個 consumer repo Dockerfile CONFIG_SRC 路徑更新
+
+### config/ 移至 script/
+- 如果 config/ 也不是 user 直接使用的，一併移入 script/
+
+### Consumer repo Makefile
+- 在 docker_template 提供 Makefile 模板（build/run/test/stop/exec）
+- Consumer repo 透過 symlink 或 subtree 取得
