@@ -222,13 +222,13 @@ template/
 ├── exec.sh                           # Shared exec script
 ├── stop.sh                           # Shared stop script
 ├── script/
-│   ├── setup.sh                     # .env generator
-│   ├── config/                    # Shell/tool configs
-│   ├── pip/
-│   └── shell/
-│       ├── bashrc
-│       ├── terminator/
-│       └── tmux/
+│   ├── setup.sh                 # .env generator
+│   ├── config/                  # Shell/tool configs
+│   │   ├── pip/
+│   │   └── shell/
+│   │       ├── bashrc
+│   │       ├── terminator/
+│   │       └── tmux/
 ├── test/
 │   ├── smoke_test/                   # Shared tests for repos
 │   │   ├── test_helper.bash

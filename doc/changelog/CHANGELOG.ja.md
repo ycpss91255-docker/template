@@ -8,21 +8,21 @@
 ## [未リリース]
 
 ### 追加
-- `scripts/init.sh`：consumer repo のワンコマンド symlink セットアップ
+- `script/init.sh`：consumer repo のワンコマンド symlink セットアップ
 - `Makefile`：統一コマンドエントリ（`make test`、`make lint`、`make migrate` 等）
 
 ### 変更
-- 管理スクリプトを `scripts/` に移動（ci.sh、migrate.sh、init.sh）— ユーザー向けスクリプトと分離
+- 管理スクリプトを `script/` に移動（ci.sh、migrate.sh、init.sh）— ユーザー向けスクリプトと分離
 - `Makefile` と `compose.yaml` はルートに残置（ユーザー操作用）
 - `test/` の再構成：`test/unit/`（自体テスト）+ `test/smoke_test/`（consumer 共有テスト）
 - `doc/` の再構成：`doc/readme/`、`doc/test/`、`doc/changelog/`（ファイルタイプ別、i18n 対応）
 - README：テスト/変更履歴セクションを簡素化、詳細ドキュメントへのリンクに変更
-- 124 テスト（旧 114）
+- 132 テスト（旧 124）
 
 ## [v0.2.0] - 2026-03-28
 
 ### 追加
-- `scripts/ci.sh`：CI パイプラインスクリプト（ローカル + リモート）
+- `script/ci.sh`：CI パイプラインスクリプト（ローカル + リモート）
 - `Makefile`：統一コマンドエントリ
 - `test/unit/` と `test/smoke_test/` の再構成
 - `doc/` の再構成（i18n 対応：readme/、test/、changelog/）
@@ -30,8 +30,8 @@
 
 ### 変更
 - `smoke_test/` を `test/smoke_test/` に移動（**破壊的変更**：consumer Dockerfile COPY パス変更）
-- `compose.yaml` が `scripts/ci.sh --ci` を呼び出すよう変更（inline bash を置換）
-- `self-test.yaml` が `scripts/ci.sh` を呼び出すよう変更（docker compose 直接呼び出しを置換）
+- `compose.yaml` が `script/ci.sh --ci` を呼び出すよう変更（inline bash を置換）
+- `self-test.yaml` が `script/ci.sh` を呼び出すよう変更（docker compose 直接呼び出しを置換）
 
 ## [v0.1.0] - 2026-03-28
 

@@ -8,11 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `scripts/init.sh`: one-command symlink setup for consumer repos
+- `script/init.sh`: one-command symlink setup for consumer repos
 - `Makefile`: unified entry point (`make test`, `make lint`, `make migrate`, etc.)
 
 ### Changed
-- Move management scripts to `scripts/` (ci.sh, migrate.sh, init.sh) — separate from user-facing Docker scripts
+- Move management scripts to `script/` (ci.sh, migrate.sh, init.sh) — separate from user-facing Docker scripts
 - `Makefile` and `compose.yaml` stay at root (user-facing)
 - Restructure `test/`: `test/unit/` (self-tests) + `test/smoke_test/` (consumer shared tests)
 - Restructure `doc/`: `doc/readme/`, `doc/test/`, `doc/changelog/` (by file type, with i18n)
@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v0.2.0] - 2026-03-28
 
 ### Added
-- `scripts/ci.sh`: CI pipeline script (local + remote)
+- `script/ci.sh`: CI pipeline script (local + remote)
 - `Makefile`: unified command entry
 - Restructured `test/unit/` and `test/smoke_test/`
 - Restructured `doc/` with i18n (readme/, test/, changelog/)
@@ -30,8 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - `smoke_test/` moved to `test/smoke_test/` (**BREAKING**: consumer Dockerfile COPY path change)
-- `compose.yaml` calls `scripts/ci.sh --ci` instead of inline bash
-- `self-test.yaml` calls `scripts/ci.sh` instead of docker compose directly
+- `compose.yaml` calls `script/ci.sh --ci` instead of inline bash
+- `self-test.yaml` calls `script/ci.sh` instead of docker compose directly
 
 ## [v0.1.0] - 2026-03-28
 

@@ -226,13 +226,13 @@ template/
 ├── exec.sh                           # 共有 exec スクリプト
 ├── stop.sh                           # 共有停止スクリプト
 ├── script/
-│   ├── setup.sh                     # .env ジェネレータ
-├── config/                           # シェル/ツール設定
-│   ├── pip/
-│   └── shell/
-│       ├── bashrc
-│       ├── terminator/
-│       └── tmux/
+│   ├── setup.sh                 # .env ジェネレータ
+│   ├── config/                  # シェル/ツール設定
+│   │   ├── pip/
+│   │   └── shell/
+│   │       ├── bashrc
+│   │       ├── terminator/
+│   │       └── tmux/
 ├── test/
 │   ├── smoke_test/                   # 各 repo 用の共有テスト
 │   │   ├── test_helper.bash

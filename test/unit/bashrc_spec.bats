@@ -10,27 +10,27 @@ setup() {
 # ════════════════════════════════════════════════════════════════════
 
 @test "defines alias_func" {
-    run grep -q "^function alias_func" "${RC}"
+    run grep -q "^alias_func()" "${RC}"
     assert_success
 }
 
 @test "defines swc" {
-    run grep -q "^function swc" "${RC}"
+    run grep -q "^swc()" "${RC}"
     assert_success
 }
 
 @test "defines color_git_branch" {
-    run grep -q "^function color_git_branch" "${RC}"
+    run grep -q "^color_git_branch()" "${RC}"
     assert_success
 }
 
 @test "defines ros_complete" {
-    run grep -q "^function ros_complete" "${RC}"
+    run grep -q "^ros_complete()" "${RC}"
     assert_success
 }
 
 @test "defines ros_source" {
-    run grep -q "^function ros_source" "${RC}"
+    run grep -q "^ros_source()" "${RC}"
     assert_success
 }
 
@@ -53,22 +53,22 @@ setup() {
 # ════════════════════════════════════════════════════════════════════
 
 @test "alias_func is called" {
-    run grep -q "^alias_func" "${RC}"
+    run grep -q "^alias_func()" "${RC}"
     assert_success
 }
 
 @test "color_git_branch is called" {
-    run grep -q "^color_git_branch" "${RC}"
+    run grep -q "^color_git_branch()" "${RC}"
     assert_success
 }
 
 @test "ros_complete is called" {
-    run grep -q "^ros_complete" "${RC}"
+    run grep -q "^ros_complete()" "${RC}"
     assert_success
 }
 
 @test "ros_source is called" {
-    run grep -q "^ros_source" "${RC}"
+    run grep -q "^ros_source()" "${RC}"
     assert_success
 }
 

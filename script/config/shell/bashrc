@@ -2,13 +2,13 @@
 # Write Hello and alias to bashrc
 echo 'Hello Docker!'
 
-function alias_func() {
+alias_func() {
     alias ebc='vim ${HOME}/.bashrc'
     alias sbc='source ${HOME}/.bashrc && \
         echo "sourced ${HOME}/.bashrc"'
 }
 
-function swc() {
+swc() {
     local -ar setup_path=(
         "./devel"
         "../devel"
@@ -29,7 +29,7 @@ function swc() {
     return 1
 }
 
-function color_git_branch() {
+color_git_branch() {
     local color_prompt=yes
 
     [[ -z $BASH_VERSION || $- != *i* ]] && return 0
@@ -51,7 +51,7 @@ function color_git_branch() {
     fi
 }
 
-function ros_complete() {
+ros_complete() {
     local -ar files=(
         "/etc/bash_completion::bash-completion"
     )
@@ -70,7 +70,7 @@ function ros_complete() {
     done
 }
 
-function ros_source() {
+ros_source() {
     local _ws="${1:-"${HOME}/work"}"
     local -ar _files=(
         "/opt/ros/${ROS_DISTRO}/setup.bash"

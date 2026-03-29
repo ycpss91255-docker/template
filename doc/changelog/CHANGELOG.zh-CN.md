@@ -8,21 +8,21 @@
 ## [未发布]
 
 ### 新增
-- `scripts/init.sh`：一键为 consumer repo 创建 symlinks
+- `script/init.sh`：一键为 consumer repo 创建 symlinks
 - `Makefile`：统一命令入口（`make test`、`make lint`、`make migrate` 等）
 
 ### 变更
-- 管理脚本移至 `scripts/`（ci.sh、migrate.sh、init.sh）— 与用户操作脚本分离
+- 管理脚本移至 `script/`（ci.sh、migrate.sh、init.sh）— 与用户操作脚本分离
 - `Makefile` 和 `compose.yaml` 留在根目录（用户操作用）
 - 重整 `test/`：`test/unit/`（自身测试）+ `test/smoke_test/`（consumer 共用测试）
 - 重整 `doc/`：`doc/readme/`、`doc/test/`、`doc/changelog/`（按文件类型分，含 i18n）
 - README：简化测试/变更记录章节，改为链接至详细文档
-- 124 个测试（原 114 个）
+- 132 个测试（原 124 个）
 
 ## [v0.2.0] - 2026-03-28
 
 ### 新增
-- `scripts/ci.sh`：CI pipeline 脚本（本地 + 远端）
+- `script/ci.sh`：CI pipeline 脚本（本地 + 远端）
 - `Makefile`：统一命令入口
 - 重整 `test/unit/` 和 `test/smoke_test/`
 - 重整 `doc/`（含 i18n：readme/、test/、changelog/）
@@ -30,8 +30,8 @@
 
 ### 变更
 - `smoke_test/` 移至 `test/smoke_test/`（**破坏性变更**：consumer Dockerfile COPY 路径变更）
-- `compose.yaml` 改为调用 `scripts/ci.sh --ci`（替代 inline bash）
-- `self-test.yaml` 改为调用 `scripts/ci.sh`（替代直接调用 docker compose）
+- `compose.yaml` 改为调用 `script/ci.sh --ci`（替代 inline bash）
+- `self-test.yaml` 改为调用 `script/ci.sh`（替代直接调用 docker compose）
 
 ## [v0.1.0] - 2026-03-28
 

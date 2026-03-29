@@ -212,13 +212,13 @@ template/
 ├── exec.sh                           # 共用 exec 腳本
 ├── stop.sh                           # 共用停止腳本
 ├── script/
-│   ├── setup.sh                     # .env 產生器
-├── config/                           # Shell/工具設定
-│   ├── pip/
-│   └── shell/
-│       ├── bashrc
-│       ├── terminator/
-│       └── tmux/
+│   ├── setup.sh                 # .env 產生器
+│   ├── config/                  # Shell/工具設定
+│   │   ├── pip/
+│   │   └── shell/
+│   │       ├── bashrc
+│   │       ├── terminator/
+│   │       └── tmux/
 ├── test/
 │   ├── smoke_test/                   # 給各 repo 使用的共用測試
 │   │   ├── test_helper.bash
