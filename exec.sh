@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
+# exec.sh - Execute commands in a running container
 
 set -euo pipefail
 
 FILE_PATH="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+readonly FILE_PATH
 _detect_lang() {
-    local _sys_lang="${LANG:-}"
-    case "${_sys_lang}" in
-        zh_TW*) echo "zh" ;; zh_CN*|zh_SG*) echo "zh-CN" ;; ja*) echo "ja" ;; *) echo "en" ;;
-    esac
+  local _sys_lang="${LANG:-}"
+  case "${_sys_lang}" in
+    zh_TW*) echo "zh" ;; zh_CN*|zh_SG*) echo "zh-CN" ;; ja*) echo "ja" ;; *) echo "en" ;;
+  esac
 }
 _LANG="${SETUP_LANG:-$(_detect_lang)}"
 
 usage() {
-    case "${_LANG}" in
-        zh)
-            cat >&2 <<'EOF'
+  case "${_LANG}" in
+    zh)
+      cat >&2 <<'EOF'
 用法: ./exec.sh [-h] [-t TARGET] [CMD...]
 
 選項:
@@ -30,9 +32,9 @@ usage() {
   ./exec.sh ls -la /home       # 在 devel 容器中執行 ls
   ./exec.sh -t runtime bash    # 進入 runtime 容器
 EOF
-            ;;
-        zh-CN)
-            cat >&2 <<'EOF'
+      ;;
+    zh-CN)
+      cat >&2 <<'EOF'
 用法: ./exec.sh [-h] [-t TARGET] [CMD...]
 
 选项:
@@ -48,9 +50,9 @@ EOF
   ./exec.sh ls -la /home       # 在 devel 容器中运行 ls
   ./exec.sh -t runtime bash    # 进入 runtime 容器
 EOF
-            ;;
-        ja)
-            cat >&2 <<'EOF'
+      ;;
+    ja)
+      cat >&2 <<'EOF'
 使用法: ./exec.sh [-h] [-t TARGET] [CMD...]
 
 オプション:
@@ -66,9 +68,9 @@ EOF
   ./exec.sh ls -la /home       # devel コンテナで ls を実行
   ./exec.sh -t runtime bash    # runtime コンテナに接続
 EOF
-            ;;
-        *)
-            cat >&2 <<'EOF'
+      ;;
+    *)
+      cat >&2 <<'EOF'
 Usage: ./exec.sh [-h] [-t TARGET] [CMD...]
 
 Options:
@@ -84,26 +86,26 @@ Examples:
   ./exec.sh ls -la /home       # Run ls in devel container
   ./exec.sh -t runtime bash    # Enter runtime container
 EOF
-            ;;
-    esac
-    exit 0
+      ;;
+  esac
+  exit 0
 }
 
 TARGET="devel"
 
 while [[ $# -gt 0 ]]; do
-    case "$1" in
-        -h|--help)
-            usage
-            ;;
-        -t|--target)
-            TARGET="${2:?"--target requires a value"}"
-            shift 2
-            ;;
-        *)
-            break
-            ;;
-    esac
+  case "$1" in
+    -h|--help)
+      usage
+      ;;
+    -t|--target)
+      TARGET="${2:?"--target requires a value"}"
+      shift 2
+      ;;
+    *)
+      break
+      ;;
+  esac
 done
 
 CMD="${*:-bash}"
@@ -116,6 +118,6 @@ set +o allexport
 
 # shellcheck disable=SC2086  # Intentional word splitting for multi-word commands
 docker compose -p "${DOCKER_HUB_USER}-${IMAGE_NAME}" \
-    -f "${FILE_PATH}/compose.yaml" \
-    --env-file "${FILE_PATH}/.env" \
-    exec "${TARGET}" ${CMD}
+  -f "${FILE_PATH}/compose.yaml" \
+  --env-file "${FILE_PATH}/.env" \
+  exec "${TARGET}" ${CMD}

@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
+# build.sh - Build Docker container images
 
 set -euo pipefail
 
 FILE_PATH="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+readonly FILE_PATH
 _detect_lang() {
-    local _sys_lang="${LANG:-}"
-    case "${_sys_lang}" in
-        zh_TW*) echo "zh" ;; zh_CN*|zh_SG*) echo "zh-CN" ;; ja*) echo "ja" ;; *) echo "en" ;;
-    esac
+  local _sys_lang="${LANG:-}"
+  case "${_sys_lang}" in
+    zh_TW*) echo "zh" ;; zh_CN*|zh_SG*) echo "zh-CN" ;; ja*) echo "ja" ;; *) echo "en" ;;
+  esac
 }
 _LANG="${SETUP_LANG:-$(_detect_lang)}"
 
 usage() {
-    case "${_LANG}" in
-        zh)
-            cat >&2 <<'EOF'
+  case "${_LANG}" in
+    zh)
+      cat >&2 <<'EOF'
 用法: ./build.sh [-h] [--no-env] [--lang <en|zh|zh-CN|ja>] [TARGET]
 
 選項:
@@ -27,9 +29,9 @@ usage() {
   test     執行 smoke test
   runtime  最小化 runtime 映像
 EOF
-            ;;
-        zh-CN)
-            cat >&2 <<'EOF'
+      ;;
+    zh-CN)
+      cat >&2 <<'EOF'
 用法: ./build.sh [-h] [--no-env] [--lang <en|zh|zh-CN|ja>] [TARGET]
 
 选项:
@@ -42,9 +44,9 @@ EOF
   test     运行 smoke test
   runtime  最小化 runtime 镜像
 EOF
-            ;;
-        ja)
-            cat >&2 <<'EOF'
+      ;;
+    ja)
+      cat >&2 <<'EOF'
 使用法: ./build.sh [-h] [--no-env] [--lang <en|zh|zh-CN|ja>] [TARGET]
 
 オプション:
@@ -57,9 +59,9 @@ EOF
   test     smoke test を実行
   runtime  最小化ランタイムイメージ
 EOF
-            ;;
-        *)
-            cat >&2 <<'EOF'
+      ;;
+    *)
+      cat >&2 <<'EOF'
 Usage: ./build.sh [-h] [--no-env] [--lang <en|zh|zh-CN|ja>] [TARGET]
 
 Options:
@@ -72,37 +74,37 @@ Targets:
   test     Run smoke tests
   runtime  Minimal runtime image
 EOF
-            ;;
-    esac
-    exit 0
+      ;;
+  esac
+  exit 0
 }
 
 SKIP_ENV=false
 TARGET="devel"
 
 while [[ $# -gt 0 ]]; do
-    case "$1" in
-        -h|--help)
-            usage
-            ;;
-        --no-env)
-            SKIP_ENV=true
-            shift
-            ;;
-        --lang)
-            _LANG="${2:?"--lang requires a value (en|zh|zh-CN|ja)"}"
-            shift 2
-            ;;
-        *)
-            TARGET="$1"
-            shift
-            ;;
-    esac
+  case "$1" in
+    -h|--help)
+      usage
+      ;;
+    --no-env)
+      SKIP_ENV=true
+      shift
+      ;;
+    --lang)
+      _LANG="${2:?"--lang requires a value (en|zh|zh-CN|ja)"}"
+      shift 2
+      ;;
+    *)
+      TARGET="$1"
+      shift
+      ;;
+  esac
 done
 
 # Generate / refresh .env
 if [[ "${SKIP_ENV}" == false ]]; then
-    "${FILE_PATH}/template/script/setup.sh" --base-path "${FILE_PATH}" --lang "${_LANG}"
+  "${FILE_PATH}/template/script/setup.sh" --base-path "${FILE_PATH}" --lang "${_LANG}"
 fi
 
 # Load .env for project name
@@ -112,6 +114,6 @@ source "${FILE_PATH}/.env"
 set +o allexport
 
 docker compose -p "${DOCKER_HUB_USER}-${IMAGE_NAME}" \
-    -f "${FILE_PATH}/compose.yaml" \
-    --env-file "${FILE_PATH}/.env" \
-    build "${TARGET}"
+  -f "${FILE_PATH}/compose.yaml" \
+  --env-file "${FILE_PATH}/.env" \
+  build "${TARGET}"
