@@ -5,19 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Added
-- `script/init.sh`: one-command symlink setup for consumer repos
-- `Makefile`: unified entry point (`make test`, `make lint`, `make migrate`, etc.)
+## [v0.4.0] - 2026-03-29
 
 ### Changed
-- Move management scripts to `script/` (ci.sh, migrate.sh, init.sh) — separate from user-facing Docker scripts
-- `Makefile` and `compose.yaml` stay at root (user-facing)
-- Restructure `test/`: `test/unit/` (self-tests) + `test/smoke_test/` (consumer shared tests)
-- Restructure `doc/`: `doc/readme/`, `doc/test/`, `doc/changelog/` (by file type, with i18n)
-- README: simplify test/changelog sections with links to detailed docs
+- Move `config/` back to root level (was `script/config/` in v0.3.0) — configs are not scripts
+- Fix `self-test.yaml` release archive: remove stale root `setup.sh` reference
+- Fix mermaid architecture diagrams: `setup.sh` shown in correct `script/` box
+- Add Table of Contents to zh-TW and zh-CN READMEs
+- Add `Makefile.ci` entry to "What's included" table (all translations)
+- Fix "Running Tests" section to use `make -f Makefile.ci` (all translations)
+
+## [v0.3.0] - 2026-03-29
+
+### Changed
+- **BREAKING**: Rename repo `docker_template` → `template`
+- **BREAKING**: Move `setup.sh` → `script/setup.sh`
+- **BREAKING**: Move `config/` → `script/config/` (reverted in v0.4.0)
+- Apply Google Shell Style Guide to all shell scripts
+- Split `Makefile` into `Makefile` (repo entry) + `Makefile.ci` (CI entry)
+- Fix directory structure, test counts, bashrc style in documentation
 - 132 tests (was 124)
+
+### Migration notes
+- Other repos: subtree prefix changes from `docker_template/` to `template/`
+- `CONFIG_SRC` path in Dockerfile: `docker_template/config` → `template/config`
+- Symlinks: `docker_template/*.sh` → `template/*.sh`
 
 ## [v0.2.0] - 2026-03-28
 
@@ -29,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Coverage permissions fix (chown with HOST_UID/HOST_GID)
 
 ### Changed
-- `smoke_test/` moved to `test/smoke_test/` (**BREAKING**: consumer Dockerfile COPY path change)
+- `smoke_test/` moved to `test/smoke_test/` (**BREAKING**: Dockerfile COPY path change)
 - `compose.yaml` calls `script/ci.sh --ci` instead of inline bash
 - `self-test.yaml` calls `script/ci.sh` instead of docker compose directly
 
@@ -57,11 +69,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `setup.sh` default `_base_path` traverses 1 level up (`/..`) instead of 2 (`/../..`) to match new `template/setup.sh` location
 
 ### Migration notes
-- Consumer repos replace `docker_setup_helper/` subtree with `template/` subtree
+- Replace `docker_setup_helper/` subtree with `template/` subtree
 - Shell scripts at root become symlinks to `template/`
 - Local `build-worker.yaml` / `release-worker.yaml` replaced by reusable workflow calls in `main.yaml`
-- Dockerfile `CONFIG_SRC` path changes: `docker_setup_helper/src/config` → `template/config`
-- Shared smoke tests loaded via `COPY template/smoke_test/` in Dockerfile (not symlinks — Docker COPY does not follow symlinks)
+- Dockerfile `CONFIG_SRC` path: `docker_setup_helper/src/config` → `template/config`
+- Shared smoke tests loaded via `COPY template/smoke_test/` in Dockerfile (not symlinks)
 
-[Unreleased]: https://github.com/ycpss91255-docker/template/compare/v0.1.0...HEAD
+[v0.4.0]: https://github.com/ycpss91255-docker/template/compare/v0.3.0...v0.4.0
+[v0.3.0]: https://github.com/ycpss91255-docker/template/compare/v0.2.0...v0.3.0
+[v0.2.0]: https://github.com/ycpss91255-docker/template/compare/v0.1.0...v0.2.0
 [v0.1.0]: https://github.com/ycpss91255-docker/template/releases/tag/v0.1.0
