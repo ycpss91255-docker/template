@@ -228,7 +228,9 @@ write_env() {
   local _docker_hub_user="${1}"; shift
   local _gpu_enabled="${1}"; shift
   local _image_name="${1}"; shift
-  local _ws_path="${1}"
+  local _ws_path="${1}"; shift
+  local _apt_mirror_ubuntu="${1}"; shift
+  local _apt_mirror_debian="${1}"
 
   local _comment=""
   _comment="$(_msg env_comment)"
@@ -248,6 +250,10 @@ IMAGE_NAME=${_image_name}
 
 # ── Workspace ────────────────────────────────
 WS_PATH=${_ws_path}
+
+# ── APT Mirror ───────────────────────────────
+APT_MIRROR_UBUNTU=${_apt_mirror_ubuntu}
+APT_MIRROR_DEBIAN=${_apt_mirror_debian}
 EOF
 }
 
@@ -296,6 +302,8 @@ main() {
   local user_name="" user_group="" user_uid="" user_gid=""
   local hardware="" docker_hub_user="" gpu_enabled="" image_name=""
   local ws_path="${WS_PATH:-}"
+  local apt_mirror_ubuntu="${APT_MIRROR_UBUNTU:-tw.archive.ubuntu.com}"
+  local apt_mirror_debian="${APT_MIRROR_DEBIAN:-mirror.twds.com.tw}"
 
   detect_user_info       user_name user_group user_uid user_gid
   detect_hardware        hardware
@@ -323,7 +331,8 @@ main() {
   write_env "${_env_file}" \
     "${user_name}" "${user_group}" "${user_uid}" "${user_gid}" \
     "${hardware}" "${docker_hub_user}" "${gpu_enabled}" \
-    "${image_name}" "${ws_path}"
+    "${image_name}" "${ws_path}" \
+    "${apt_mirror_ubuntu}" "${apt_mirror_debian}"
 
   printf "[setup] %s\n" "$(_msg env_done)"
   printf "[setup] USER=%s (%s:%s)  GPU=%s  IMAGE=%s  WS=%s\n" \
