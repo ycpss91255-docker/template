@@ -35,6 +35,7 @@ Template self-tests: **136 tests** total.
 | `main creates .env when it does not exist` | Fresh .env |
 | `main sources existing .env and reuses valid WS_PATH` | WS_PATH reuse |
 | `main re-detects WS_PATH when path in .env no longer exists` | Stale WS_PATH |
+| `main warns when IMAGE_NAME is unknown` | Unknown IMAGE_NAME warning |
 | `main uses BASH_SOURCE fallback when --base-path not given` | Fallback path |
 | `default _base_path resolves to repo root, not script dir` | Regression test |
 | `main returns error on unknown argument` | Error handling |
