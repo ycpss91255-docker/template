@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run CI (ShellCheck + Bats + Kcov)
-        run: ./script/ci.sh
+        run: ./script/ci/ci.sh
 
       - name: Upload coverage to Codecov
         if: always()

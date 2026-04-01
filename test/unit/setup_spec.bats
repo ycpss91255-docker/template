@@ -5,7 +5,7 @@ setup() {
 
     # Source setup.sh functions only (main is guarded)
     # shellcheck disable=SC1091
-    source /source/script/setup.sh
+    source /source/script/docker/setup.sh
 
     create_mock_dir
     TEMP_DIR="$(mktemp -d)"
@@ -255,7 +255,7 @@ esac'
     local _ws="${TEMP_DIR}/test_ws"
     mkdir -p "${_ws}"
     run bash -c "
-        source /source/script/setup.sh
+        source /source/script/docker/setup.sh
         detect_ws_path() { local -n _o=\$1; _o='${_ws}'; }
         main --base-path '${TEMP_DIR}'
     "
@@ -270,7 +270,7 @@ esac'
 WS_PATH=${_ws}
 EOF
     run bash -c "
-        source /source/script/setup.sh
+        source /source/script/docker/setup.sh
         main --base-path '${TEMP_DIR}'
     "
     assert_success
@@ -285,7 +285,7 @@ EOF
 WS_PATH=/this/path/does/not/exist
 EOF
     run bash -c "
-        source /source/script/setup.sh
+        source /source/script/docker/setup.sh
         detect_ws_path() { local -n _o=\$1; _o='${_new_ws}'; }
         main --base-path '${TEMP_DIR}'
     "
@@ -302,7 +302,7 @@ EOF
     echo "IMAGE_NAME=my_custom_image" > "${_proj}/.env.example"
 
     run bash -c "
-        source /source/script/setup.sh
+        source /source/script/docker/setup.sh
         detect_ws_path() { local -n _o=\$1; _o='${_ws}'; }
         main --base-path '${_proj}'
     "
@@ -317,7 +317,7 @@ EOF
     mkdir -p "${_ws}" "${_proj}"
 
     run bash -c "
-        source /source/script/setup.sh
+        source /source/script/docker/setup.sh
         detect_ws_path() { local -n _o=\$1; _o='${_ws}'; }
         main --base-path '${_proj}'
     "
@@ -336,11 +336,11 @@ EOF
 }
 
 @test "default _base_path resolves to repo root, not script dir" {
-    # Regression: setup.sh lives at template/script/setup.sh
-    # Default _base_path must go up 2 levels to repo root
+    # Regression: setup.sh lives at template/script/docker/setup.sh
+    # Default _base_path must go up 3 levels to repo root
     local _repo_root="${TEMP_DIR}/docker_myapp"
-    mkdir -p "${_repo_root}/template/script"
-    cp /source/script/setup.sh "${_repo_root}/template/script/setup.sh"
+    mkdir -p "${_repo_root}/template/script/docker"
+    cp /source/script/docker/setup.sh "${_repo_root}/template/script/docker/setup.sh"
 
     # Create .env.example as fallback for IMAGE_NAME
     echo "IMAGE_NAME=myapp" > "${_repo_root}/.env.example"
@@ -350,7 +350,7 @@ EOF
     mkdir -p "${_ws}"
 
     # Run setup.sh directly (no --base-path), simulating user calling it
-    run bash -c "cd '${_repo_root}' && bash template/script/setup.sh"
+    run bash -c "cd '${_repo_root}' && bash template/script/docker/setup.sh"
     assert_success
 
     # .env should be at repo root, not in template/script/
@@ -363,12 +363,12 @@ EOF
 }
 
 @test "main returns error on unknown argument" {
-    run bash -c "source /source/script/setup.sh; main --invalid-arg"
+    run bash -c "source /source/script/docker/setup.sh; main --invalid-arg"
     assert_failure
 }
 
 @test "main returns error when --base-path value is missing" {
-    run bash -c "source /source/script/setup.sh; main --base-path"
+    run bash -c "source /source/script/docker/setup.sh; main --base-path"
     assert_failure
 }
 
@@ -376,7 +376,7 @@ EOF
     local _ws="${TEMP_DIR}/test_ws"
     mkdir -p "${_ws}"
     run bash -c "
-        source /source/script/setup.sh
+        source /source/script/docker/setup.sh
         detect_ws_path() { local -n _o=\$1; _o='${_ws}'; }
         main --base-path '${TEMP_DIR}'
     "
@@ -396,7 +396,7 @@ APT_MIRROR_UBUNTU=us.archive.ubuntu.com
 APT_MIRROR_DEBIAN=deb.debian.org
 EOF
     run bash -c "
-        source /source/script/setup.sh
+        source /source/script/docker/setup.sh
         main --base-path '${TEMP_DIR}'
     "
     assert_success
@@ -483,7 +483,7 @@ EOF
     local _ws="${TEMP_DIR}/test_ws"
     mkdir -p "${_ws}"
     run bash -c "
-        source /source/script/setup.sh
+        source /source/script/docker/setup.sh
         detect_ws_path() { local -n _o=\$1; _o='${_ws}'; }
         main --base-path '${TEMP_DIR}' --lang zh
     "
@@ -492,6 +492,6 @@ EOF
 }
 
 @test "main --lang requires a value" {
-    run bash -c "source /source/script/setup.sh; main --lang"
+    run bash -c "source /source/script/docker/setup.sh; main --lang"
     assert_failure
 }

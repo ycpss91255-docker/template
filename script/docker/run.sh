@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# build.sh - Build Docker container images
+# run.sh - Run Docker containers (interactive or detached)
 
 set -euo pipefail
 
@@ -17,75 +17,81 @@ usage() {
   case "${_LANG}" in
     zh)
       cat >&2 <<'EOF'
-用法: ./build.sh [-h] [--no-env] [--lang <en|zh|zh-CN|ja>] [TARGET]
+用法: ./run.sh [-h] [-d|--detach] [--no-env] [--lang <en|zh|zh-CN|ja>] [TARGET]
 
 選項:
   -h, --help     顯示此說明
+  -d, --detach   背景執行（docker compose up -d）
   --no-env       跳過 .env 重新產生
   --lang LANG    設定訊息語言（預設: en）
 
 目標:
   devel    開發環境（預設）
-  test     執行 smoke test
-  runtime  最小化 runtime 映像
+  runtime  最小化 runtime
 EOF
       ;;
     zh-CN)
       cat >&2 <<'EOF'
-用法: ./build.sh [-h] [--no-env] [--lang <en|zh|zh-CN|ja>] [TARGET]
+用法: ./run.sh [-h] [-d|--detach] [--no-env] [--lang <en|zh|zh-CN|ja>] [TARGET]
 
 选项:
   -h, --help     显示此说明
+  -d, --detach   后台运行（docker compose up -d）
   --no-env       跳过 .env 重新生成
   --lang LANG    设置消息语言（默认: en）
 
 目标:
   devel    开发环境（默认）
-  test     运行 smoke test
-  runtime  最小化 runtime 镜像
+  runtime  最小化 runtime
 EOF
       ;;
     ja)
       cat >&2 <<'EOF'
-使用法: ./build.sh [-h] [--no-env] [--lang <en|zh|zh-CN|ja>] [TARGET]
+使用法: ./run.sh [-h] [-d|--detach] [--no-env] [--lang <en|zh|zh-CN|ja>] [TARGET]
 
 オプション:
   -h, --help     このヘルプを表示
+  -d, --detach   バックグラウンドで実行（docker compose up -d）
   --no-env       .env の再生成をスキップ
   --lang LANG    メッセージ言語を設定（デフォルト: en）
 
 ターゲット:
   devel    開発環境（デフォルト）
-  test     smoke test を実行
-  runtime  最小化ランタイムイメージ
+  runtime  最小化ランタイム
 EOF
       ;;
     *)
       cat >&2 <<'EOF'
-Usage: ./build.sh [-h] [--no-env] [--lang <en|zh|zh-CN|ja>] [TARGET]
+Usage: ./run.sh [-h] [-d|--detach] [--no-env] [--lang <en|zh|zh-CN|ja>] [TARGET]
 
 Options:
   -h, --help     Show this help
+  -d, --detach   Run in background (docker compose up -d)
   --no-env       Skip .env regeneration
   --lang LANG    Set message language (default: en)
 
 Targets:
   devel    Development environment (default)
-  test     Run smoke tests
-  runtime  Minimal runtime image
+  runtime  Minimal runtime
 EOF
       ;;
   esac
   exit 0
 }
 
+# Parse arguments
 SKIP_ENV=false
+DETACH=false
 TARGET="devel"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -h|--help)
       usage
+      ;;
+    -d|--detach)
+      DETACH=true
+      shift
       ;;
     --no-env)
       SKIP_ENV=true
@@ -104,25 +110,34 @@ done
 
 # Generate / refresh .env
 if [[ "${SKIP_ENV}" == false ]]; then
-  "${FILE_PATH}/template/script/setup.sh" --base-path "${FILE_PATH}" --lang "${_LANG}"
+  "${FILE_PATH}/template/script/docker/setup.sh" --base-path "${FILE_PATH}" --lang "${_LANG}"
 fi
 
-# Load .env for project name
+# Load .env for xhost
 set -o allexport
 # shellcheck disable=SC1091
 source "${FILE_PATH}/.env"
 set +o allexport
 
-# Build test-tools image if Dockerfile exists
-_tools_dockerfile="${FILE_PATH}/template/dockerfile/Dockerfile.test-tools"
-if [[ -f "${_tools_dockerfile}" ]]; then
-  docker build -t test-tools:local -f "${_tools_dockerfile}" "${FILE_PATH}" -q >/dev/null
+# Allow X11 forwarding (X11 or XWayland)
+if [[ "${XDG_SESSION_TYPE:-x11}" == "wayland" ]]; then
+  xhost "+SI:localuser:${USER_NAME}" >/dev/null 2>&1 || true
+else
+  xhost +local: >/dev/null 2>&1 || true
 fi
 
-_cleanup() { docker rmi test-tools:local 2>/dev/null || true; }
-trap _cleanup EXIT
-
-docker compose -p "${DOCKER_HUB_USER}-${IMAGE_NAME}" \
-  -f "${FILE_PATH}/compose.yaml" \
-  --env-file "${FILE_PATH}/.env" \
-  build "${TARGET}"
+if [[ "${DETACH}" == true ]]; then
+  docker compose -p "${DOCKER_HUB_USER}-${IMAGE_NAME}" \
+    -f "${FILE_PATH}/compose.yaml" \
+    --env-file "${FILE_PATH}/.env" \
+    down 2>/dev/null || true
+  docker compose -p "${DOCKER_HUB_USER}-${IMAGE_NAME}" \
+    -f "${FILE_PATH}/compose.yaml" \
+    --env-file "${FILE_PATH}/.env" \
+    up -d "${TARGET}"
+else
+  docker compose -p "${DOCKER_HUB_USER}-${IMAGE_NAME}" \
+    -f "${FILE_PATH}/compose.yaml" \
+    --env-file "${FILE_PATH}/.env" \
+    run --rm --name "${IMAGE_NAME}" "${TARGET}"
+fi
