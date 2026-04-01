@@ -13,7 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Preserves existing values from `.env` on re-run
 - `setup.sh`: warn when `IMAGE_NAME` cannot be detected and `.env.example` not found
 - `display_env.bats`: auto-skip GUI tests for headless repos
+- `dockerfile/Dockerfile.test-tools`: pre-built test tools image (ShellCheck + Hadolint + Bats)
+- `dockerfile/Dockerfile.example`: Dockerfile template for new repos
+- `init.sh`: support creating new repo with full project structure
+- `build.sh`: auto-build `test-tools:local` before compose build
 - 5 new tests (137 total)
+
+### Changed
+- **BREAKING**: Directory restructure
+  - `build.sh`, `run.sh`, `exec.sh`, `stop.sh`, `Makefile`, `setup.sh` → `script/docker/`
+  - `ci.sh` → `script/ci/`
+  - `init.sh`, `upgrade.sh` → template root (user-facing)
+- Other repos symlink path: `template/build.sh` → `template/script/docker/build.sh`
 
 ## [v0.4.2] - 2026-03-30
 

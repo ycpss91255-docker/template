@@ -2,15 +2,15 @@
 # upgrade.sh - Upgrade template subtree to the latest version
 #
 # Run from the repo root:
-#   ./template/script/upgrade.sh              # upgrade to latest tag
-#   ./template/script/upgrade.sh v0.3.0       # upgrade to specific version
-#   ./template/script/upgrade.sh --check      # check if update available
+#   ./template/upgrade.sh              # upgrade to latest tag
+#   ./template/upgrade.sh v0.3.0       # upgrade to specific version
+#   ./template/upgrade.sh --check      # check if update available
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly SCRIPT_DIR
-REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd -P)"
+REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd -P)"
 readonly REPO_ROOT
 TEMPLATE_REMOTE="git@github.com:ycpss91255-docker/template.git"
 readonly TEMPLATE_REMOTE

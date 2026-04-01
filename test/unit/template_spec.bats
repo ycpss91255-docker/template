@@ -9,28 +9,28 @@ setup() {
 # ════════════════════════════════════════════════════════════════════
 
 @test "build.sh exists and is executable" {
-    assert [ -f /source/build.sh ]
-    assert [ -x /source/build.sh ]
+    assert [ -f /source/script/docker/build.sh ]
+    assert [ -x /source/script/docker/build.sh ]
 }
 
 @test "run.sh exists and is executable" {
-    assert [ -f /source/run.sh ]
-    assert [ -x /source/run.sh ]
+    assert [ -f /source/script/docker/run.sh ]
+    assert [ -x /source/script/docker/run.sh ]
 }
 
 @test "exec.sh exists and is executable" {
-    assert [ -f /source/exec.sh ]
-    assert [ -x /source/exec.sh ]
+    assert [ -f /source/script/docker/exec.sh ]
+    assert [ -x /source/script/docker/exec.sh ]
 }
 
 @test "stop.sh exists and is executable" {
-    assert [ -f /source/stop.sh ]
-    assert [ -x /source/stop.sh ]
+    assert [ -f /source/script/docker/stop.sh ]
+    assert [ -x /source/script/docker/stop.sh ]
 }
 
 @test "setup.sh exists and is executable" {
-    assert [ -f /source/script/setup.sh ]
-    assert [ -x /source/script/setup.sh ]
+    assert [ -f /source/script/docker/setup.sh ]
+    assert [ -x /source/script/docker/setup.sh ]
 }
 
 # ════════════════════════════════════════════════════════════════════
@@ -38,21 +38,21 @@ setup() {
 # ════════════════════════════════════════════════════════════════════
 
 @test "ci.sh exists and is executable" {
-    assert [ -f /source/script/ci.sh ]
-    assert [ -x /source/script/ci.sh ]
+    assert [ -f /source/script/ci/ci.sh ]
+    assert [ -x /source/script/ci/ci.sh ]
 }
 
 @test "ci.sh uses set -euo pipefail" {
-    run grep "set -euo pipefail" /source/script/ci.sh
+    run grep "set -euo pipefail" /source/script/ci/ci.sh
     assert_success
 }
 
 @test "Makefile exists (repo entry)" {
-    assert [ -f /source/Makefile ]
+    assert [ -f /source/script/docker/Makefile ]
 }
 
 @test "Makefile has build target" {
-    run grep -E '^build:' /source/Makefile
+    run grep -E '^build:' /source/script/docker/Makefile
     assert_success
 }
 
@@ -107,16 +107,16 @@ setup() {
 }
 
 # ════════════════════════════════════════════════════════════════════
-# Path reference: scripts call template/script/setup.sh
+# Path reference: scripts call template/script/docker/setup.sh
 # ════════════════════════════════════════════════════════════════════
 
-@test "build.sh references template/script/setup.sh" {
-    run grep "template/script/setup.sh" /source/build.sh
+@test "build.sh references template/script/docker/setup.sh" {
+    run grep "template/script/docker/setup.sh" /source/script/docker/build.sh
     assert_success
 }
 
-@test "run.sh references template/script/setup.sh" {
-    run grep "template/script/setup.sh" /source/run.sh
+@test "run.sh references template/script/docker/setup.sh" {
+    run grep "template/script/docker/setup.sh" /source/script/docker/run.sh
     assert_success
 }
 
@@ -125,22 +125,22 @@ setup() {
 # ════════════════════════════════════════════════════════════════════
 
 @test "build.sh uses set -euo pipefail" {
-    run grep "set -euo pipefail" /source/build.sh
+    run grep "set -euo pipefail" /source/script/docker/build.sh
     assert_success
 }
 
 @test "run.sh uses set -euo pipefail" {
-    run grep "set -euo pipefail" /source/run.sh
+    run grep "set -euo pipefail" /source/script/docker/run.sh
     assert_success
 }
 
 @test "exec.sh uses set -euo pipefail" {
-    run grep "set -euo pipefail" /source/exec.sh
+    run grep "set -euo pipefail" /source/script/docker/exec.sh
     assert_success
 }
 
 @test "stop.sh uses set -euo pipefail" {
-    run grep "set -euo pipefail" /source/stop.sh
+    run grep "set -euo pipefail" /source/script/docker/stop.sh
     assert_success
 }
 
@@ -149,32 +149,32 @@ setup() {
 # ════════════════════════════════════════════════════════════════════
 
 @test "build.sh uses -p for compose project name" {
-    run grep -E '\-p.*DOCKER_HUB_USER.*IMAGE_NAME' /source/build.sh
+    run grep -E '\-p.*DOCKER_HUB_USER.*IMAGE_NAME' /source/script/docker/build.sh
     assert_success
 }
 
 @test "run.sh uses -p for compose project name" {
-    run grep -E '\-p.*DOCKER_HUB_USER.*IMAGE_NAME' /source/run.sh
+    run grep -E '\-p.*DOCKER_HUB_USER.*IMAGE_NAME' /source/script/docker/run.sh
     assert_success
 }
 
 @test "exec.sh uses -p for compose project name" {
-    run grep -E '\-p.*DOCKER_HUB_USER.*IMAGE_NAME' /source/exec.sh
+    run grep -E '\-p.*DOCKER_HUB_USER.*IMAGE_NAME' /source/script/docker/exec.sh
     assert_success
 }
 
 @test "stop.sh uses -p for compose project name" {
-    run grep -E '\-p.*DOCKER_HUB_USER.*IMAGE_NAME' /source/stop.sh
+    run grep -E '\-p.*DOCKER_HUB_USER.*IMAGE_NAME' /source/script/docker/stop.sh
     assert_success
 }
 
 @test "exec.sh sources .env" {
-    run grep 'source.*\.env' /source/exec.sh
+    run grep 'source.*\.env' /source/script/docker/exec.sh
     assert_success
 }
 
 @test "stop.sh sources .env" {
-    run grep 'source.*\.env' /source/stop.sh
+    run grep 'source.*\.env' /source/script/docker/stop.sh
     assert_success
 }
 
@@ -183,17 +183,17 @@ setup() {
 # ════════════════════════════════════════════════════════════════════
 
 @test "run.sh contains XDG_SESSION_TYPE check" {
-    run grep "XDG_SESSION_TYPE" /source/run.sh
+    run grep "XDG_SESSION_TYPE" /source/script/docker/run.sh
     assert_success
 }
 
 @test "run.sh contains xhost +SI:localuser for wayland" {
-    run grep 'xhost "+SI:localuser' /source/run.sh
+    run grep 'xhost "+SI:localuser' /source/script/docker/run.sh
     assert_success
 }
 
 @test "run.sh contains xhost +local: for X11" {
-    run grep 'xhost +local:' /source/run.sh
+    run grep 'xhost +local:' /source/script/docker/run.sh
     assert_success
 }
 
@@ -202,13 +202,13 @@ setup() {
 # ════════════════════════════════════════════════════════════════════
 
 @test "setup.sh default _base_path uses /.." {
-    # In template, setup.sh is at template/script/setup.sh
+    # In template, setup.sh is at template/script/docker/setup.sh
     # So it should go up 1 level (/..) to reach repo root
-    run grep -E '\.\./\.\.' /source/script/setup.sh
+    run grep -E '\.\./\.\.' /source/script/docker/setup.sh
     assert_success  # Should have ../../ ../../ (that was old docker_setup_helper/src/ pattern)
 }
 
 @test "setup.sh default _base_path uses double parent traversal" {
-    run grep -E "dirname.*BASH_SOURCE.*\.\..*\.\." /source/script/setup.sh
+    run grep -E "dirname.*BASH_SOURCE.*\.\..*\.\." /source/script/docker/setup.sh
     assert_success
 }
