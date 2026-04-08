@@ -148,22 +148,106 @@ esac'
     assert_equal "${_result}" "project"
 }
 
-@test "detect_image_name returns unknown for plain directory" {
+@test "detect_image_name uses basename for plain directory (default conf)" {
     local _result
     detect_image_name _result "/home/user/projects/ros_noetic"
-    assert_equal "${_result}" "unknown"
+    assert_equal "${_result}" "ros_noetic"
 }
 
-@test "detect_image_name returns unknown for generic path" {
+@test "detect_image_name uses basename for generic path (default conf)" {
     local _result
-    detect_image_name _result "/home/user/MyProject"
-    assert_equal "${_result}" "unknown"
+    detect_image_name _result "/home/user/myproject"
+    assert_equal "${_result}" "myproject"
 }
 
 @test "detect_image_name lowercases the result" {
     local _result
     detect_image_name _result "/home/user/MyApp_ws/src/docker"
     assert_equal "${_result}" "myapp"
+}
+
+# ════════════════════════════════════════════════════════════════════
+# detect_image_name: image_name.conf rule engine
+# ════════════════════════════════════════════════════════════════════
+
+@test "detect_image_name uses repo-level image_name.conf when present" {
+    local _conf="${TEMP_DIR}/image_name.conf"
+    cat > "${_conf}" <<EOF
+prefix:foo_
+basename
+EOF
+    local _result
+    IMAGE_NAME_CONF="${_conf}" detect_image_name _result "/home/user/foo_myapp"
+    assert_equal "${_result}" "myapp"
+}
+
+@test "detect_image_name auto-discovers image_name.conf via BASE_PATH" {
+    cat > "${TEMP_DIR}/image_name.conf" <<EOF
+prefix:bar_
+basename
+EOF
+    local _result
+    BASE_PATH="${TEMP_DIR}" detect_image_name _result "/home/user/bar_myapp"
+    assert_equal "${_result}" "myapp"
+}
+
+@test "detect_image_name reads env_example rule from conf" {
+    local _conf="${TEMP_DIR}/image_name.conf"
+    local _example="${TEMP_DIR}/.env.example"
+    cat > "${_conf}" <<EOF
+env_example
+basename
+EOF
+    echo "IMAGE_NAME=from_example" > "${_example}"
+    local _result
+    BASE_PATH="${TEMP_DIR}" IMAGE_NAME_CONF="${_conf}" \
+        detect_image_name _result "/home/user/some_dir"
+    assert_equal "${_result}" "from_example"
+}
+
+@test "detect_image_name applies rules in order (first match wins)" {
+    local _conf="${TEMP_DIR}/image_name.conf"
+    cat > "${_conf}" <<EOF
+prefix:docker_
+suffix:_ws
+basename
+EOF
+    local _result
+    # path has both docker_ and _ws — prefix wins
+    IMAGE_NAME_CONF="${_conf}" detect_image_name _result "/home/user/myapp_ws/src/docker_nav"
+    assert_equal "${_result}" "nav"
+}
+
+@test "detect_image_name skips comments and empty lines in conf" {
+    local _conf="${TEMP_DIR}/image_name.conf"
+    cat > "${_conf}" <<EOF
+# This is a comment
+prefix:foo_
+
+# Another comment
+basename
+EOF
+    local _result
+    IMAGE_NAME_CONF="${_conf}" detect_image_name _result "/home/user/foo_myapp"
+    assert_equal "${_result}" "myapp"
+}
+
+@test "detect_image_name skips whitespace-only lines in conf" {
+    local _conf="${TEMP_DIR}/image_name.conf"
+    printf 'prefix:foo_\n   \n\t\nbasename\n' > "${_conf}"
+    local _result
+    IMAGE_NAME_CONF="${_conf}" detect_image_name _result "/home/user/foo_myapp"
+    assert_equal "${_result}" "myapp"
+}
+
+@test "detect_image_name returns unknown when no rule matches and no basename" {
+    local _conf="${TEMP_DIR}/image_name.conf"
+    cat > "${_conf}" <<EOF
+prefix:nonexistent_
+EOF
+    local _result
+    IMAGE_NAME_CONF="${_conf}" detect_image_name _result "/home/user/myapp"
+    assert_equal "${_result}" "unknown"
 }
 
 # ════════════════════════════════════════════════════════════════════
@@ -311,7 +395,7 @@ EOF
     assert_success
 }
 
-@test "main warns when IMAGE_NAME is unknown and no .env.example" {
+@test "main uses basename for repo without docker_/_ws naming" {
     local _ws="${TEMP_DIR}/test_ws"
     local _proj="${TEMP_DIR}/my_generic_project"
     mkdir -p "${_ws}" "${_proj}"
@@ -322,8 +406,7 @@ EOF
         main --base-path '${_proj}'
     "
     assert_success
-    assert_line --partial "WARNING"
-    run grep 'IMAGE_NAME=unknown' "${_proj}/.env"
+    run grep 'IMAGE_NAME=my_generic_project' "${_proj}/.env"
     assert_success
 }
 
@@ -339,11 +422,9 @@ EOF
     # Regression: setup.sh lives at template/script/docker/setup.sh
     # Default _base_path must go up 3 levels to repo root
     local _repo_root="${TEMP_DIR}/docker_myapp"
-    mkdir -p "${_repo_root}/template/script/docker"
+    mkdir -p "${_repo_root}/template/script/docker" "${_repo_root}/template/config"
     cp /source/script/docker/setup.sh "${_repo_root}/template/script/docker/setup.sh"
-
-    # Create .env.example as fallback for IMAGE_NAME
-    echo "IMAGE_NAME=myapp" > "${_repo_root}/.env.example"
+    cp /source/config/image_name.conf "${_repo_root}/template/config/image_name.conf"
 
     # Create a dummy ws for detect_ws_path
     local _ws="${TEMP_DIR}/myapp_ws"

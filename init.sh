@@ -229,20 +229,47 @@ _init_existing_repo() {
   _create_symlinks
 }
 
+# ── Generate per-repo image_name.conf ───────────────────────────────────────
+
+_gen_image_conf() {
+  local _src="${TEMPLATE_DIR}/config/image_name.conf"
+  local _dst="${REPO_ROOT}/image_name.conf"
+  if [[ ! -f "${_src}" ]]; then
+    _error "Template image_name.conf not found at ${_src}"
+  fi
+  if [[ -f "${_dst}" ]]; then
+    _error "image_name.conf already exists in repo root. Remove it first or edit directly."
+  fi
+  cp "${_src}" "${_dst}"
+  _log "Created ${_dst}"
+  _log "Edit it to customize IMAGE_NAME detection rules for this repo."
+}
+
+_error() { printf "[init] ERROR: %s\n" "$*" >&2; exit 1; }
+
 # ── Main ────────────────────────────────────────────────────────────────────
 
 if [[ "${1:-}" =~ ^(-h|--help)$ ]]; then
   cat >&2 <<'EOF'
-Usage: ./template/init.sh
+Usage: ./template/init.sh [--gen-image-conf]
 
 Initialize a repo with template. Auto-detects:
   - Has Dockerfile → create symlinks + .template_version
   - No Dockerfile  → generate full project structure
 
+Options:
+  --gen-image-conf   Copy template's image_name.conf to repo root
+                     (for per-repo IMAGE_NAME detection rule override)
+
 Run from the repo root after:
   git subtree add --prefix=template \
       git@github.com:ycpss91255-docker/template.git <version> --squash
 EOF
+  exit 0
+fi
+
+if [[ "${1:-}" == "--gen-image-conf" ]]; then
+  _gen_image_conf
   exit 0
 fi
 

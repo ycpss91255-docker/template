@@ -121,12 +121,74 @@ detect_gpu() {
 }
 
 # ════════════════════════════════════════════════════════════════════
+# Rule applicators (used by detect_image_name)
+#
+# Each takes the path and rule value, echoes the matched name or nothing.
+# ════════════════════════════════════════════════════════════════════
+
+_rule_prefix() {
+  local _path="$1" _value="$2"
+  local -a _parts=()
+  IFS='/' read -ra _parts <<< "${_path}"
+  local i _part _last=""
+  for (( i=${#_parts[@]}-1; i>=0; i-- )); do
+    _part="${_parts[i]}"
+    [[ -z "${_part}" ]] && continue
+    _last="${_part}"
+    break
+  done
+  if [[ "${_last}" == "${_value}"* ]]; then
+    echo "${_last#"${_value}"}"
+  fi
+}
+
+_rule_suffix() {
+  local _path="$1" _value="$2"
+  local -a _parts=()
+  IFS='/' read -ra _parts <<< "${_path}"
+  local i _part
+  for (( i=${#_parts[@]}-1; i>=0; i-- )); do
+    _part="${_parts[i]}"
+    [[ -z "${_part}" ]] && continue
+    if [[ "${_part}" == *"${_value}" ]]; then
+      echo "${_part%"${_value}"}"
+      return
+    fi
+  done
+}
+
+_rule_env_example() {
+  local _base="${BASE_PATH:-$1}"
+  # If $1 is a path, derive base; if BASE_PATH is set, use it
+  local _file="${_base}/.env.example"
+  if [[ -f "${_file}" ]]; then
+    grep -m1 '^IMAGE_NAME=' "${_file}" 2>/dev/null | cut -d= -f2-
+  fi
+}
+
+_rule_basename() {
+  local _path="$1"
+  local -a _parts=()
+  IFS='/' read -ra _parts <<< "${_path}"
+  local i _part
+  for (( i=${#_parts[@]}-1; i>=0; i-- )); do
+    _part="${_parts[i]}"
+    [[ -z "${_part}" ]] && continue
+    echo "${_part}"
+    return
+  done
+}
+
+# ════════════════════════════════════════════════════════════════════
 # detect_image_name
 #
-# Detection priority:
-#   1. Check last directory only for docker_* → strip prefix
-#   2. Scan entire path (right to left) for *_ws → use prefix
-#   3. Fallback to "unknown"
+# Reads rules from image_name.conf (per-repo override or template default).
+# Rules applied in order; first match wins.
+#
+# Conf path resolution:
+#   1. ${IMAGE_NAME_CONF} env var (test override)
+#   2. ${BASE_PATH}/image_name.conf (repo-level override)
+#   3. <template>/config/image_name.conf (default)
 #
 # Usage: detect_image_name <outvar> <path>
 # ════════════════════════════════════════════════════════════════════
@@ -134,36 +196,47 @@ detect_image_name() {
   local -n _outvar="${1:?"${FUNCNAME[0]}: missing outvar"}"; shift
   local _path="${1:?"${FUNCNAME[0]}: missing path"}"
 
-  local -a _parts=()
-  local _found="" _last=""
-
-  IFS='/' read -ra _parts <<< "${_path}"
-
-  # 1. Check last directory for docker_* prefix
-  local i _part
-  for (( i=${#_parts[@]}-1; i>=0; i-- )); do
-    _part="${_parts[i]}"
-    [[ -z "${_part}" ]] && continue
-    _last="${_part}"
-    break
-  done
-  if [[ "${_last}" == docker_* ]]; then
-    _found="${_last#docker_}"
+  # Resolve conf file
+  local _conf="${IMAGE_NAME_CONF:-}"
+  if [[ -z "${_conf}" ]]; then
+    local _base="${BASE_PATH:-${_path}}"
+    if [[ -f "${_base}/image_name.conf" ]]; then
+      _conf="${_base}/image_name.conf"
+    else
+      # Default: template/config/image_name.conf
+      local _self_dir
+      _self_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd -P)"
+      _conf="${_self_dir}/../../config/image_name.conf"
+    fi
   fi
 
-  # 2. Scan entire path for *_ws (right to left)
-  if [[ -z "${_found}" ]]; then
-    for (( i=${#_parts[@]}-1; i>=0; i-- )); do
-      _part="${_parts[i]}"
-      [[ -z "${_part}" ]] && continue
-      if [[ "${_part}" == *_ws ]]; then
-        _found="${_part%_ws}"
-        break
+  local _found=""
+  if [[ -f "${_conf}" ]]; then
+    local _line _type _value
+    while IFS= read -r _line || [[ -n "${_line}" ]]; do
+      # Skip comments and empty lines
+      [[ -z "${_line}" || "${_line}" =~ ^[[:space:]]*# ]] && continue
+      # Trim whitespace
+      _line="${_line#"${_line%%[![:space:]]*}"}"
+      _line="${_line%"${_line##*[![:space:]]}"}"
+      [[ -z "${_line}" ]] && continue
+
+      if [[ "${_line}" == prefix:* ]]; then
+        _value="${_line#prefix:}"
+        _found="$(_rule_prefix "${_path}" "${_value}")"
+      elif [[ "${_line}" == suffix:* ]]; then
+        _value="${_line#suffix:}"
+        _found="$(_rule_suffix "${_path}" "${_value}")"
+      elif [[ "${_line}" == "env_example" ]]; then
+        _found="$(BASE_PATH="${BASE_PATH:-${_path}}" _rule_env_example "${_path}")"
+      elif [[ "${_line}" == "basename" ]]; then
+        _found="$(_rule_basename "${_path}")"
       fi
-    done
+
+      [[ -n "${_found}" ]] && break
+    done < "${_conf}"  # LCOV_EXCL_LINE
   fi
 
-  # 3. Fallback
   _outvar="${_found:-unknown}"
   _outvar="${_outvar,,}"
 }
@@ -309,19 +382,7 @@ main() {
   detect_hardware        hardware
   detect_docker_hub_user docker_hub_user
   detect_gpu             gpu_enabled
-  detect_image_name      image_name "${_base_path}"
-
-  # Fallback: read IMAGE_NAME from .env.example
-  if [[ "${image_name}" == "unknown" ]]; then
-    local _env_example="${_base_path}/.env.example"
-    if [[ -f "${_env_example}" ]]; then
-      local _example_name=""
-      _example_name="$(grep -m1 '^IMAGE_NAME=' "${_env_example}" | cut -d= -f2)"
-      if [[ -n "${_example_name}" && "${_example_name}" != "unknown" ]]; then
-        image_name="${_example_name}"
-      fi
-    fi
-  fi
+  BASE_PATH="${_base_path}" detect_image_name image_name "${_base_path}"
 
   if [[ "${image_name}" == "unknown" ]]; then
     printf "[setup] WARNING: IMAGE_NAME could not be detected. Using 'unknown'.\n" >&2
