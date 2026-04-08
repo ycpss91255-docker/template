@@ -1,10 +1,10 @@
 # TEST.md
 
-Template self-tests: **142 tests** total.
+Template self-tests: **149 tests** total.
 
 ## Test Files
 
-### test/unit/setup_spec.bats (47)
+### test/unit/setup_spec.bats (54)
 
 | Test | Description |
 |------|-------------|
@@ -22,9 +22,16 @@ Template self-tests: **142 tests** total.
 | `detect_image_name prefers docker_* over *_ws in path` | Priority check |
 | `detect_image_name strips docker_ prefix from last dir` | Prefix stripping |
 | `detect_image_name strips docker_ from absolute root` | Root path |
-| `detect_image_name returns unknown for plain directory` | Unknown fallback |
-| `detect_image_name returns unknown for generic path` | Generic path |
+| `detect_image_name uses basename for plain directory (default conf)` | basename rule |
+| `detect_image_name uses basename for generic path (default conf)` | basename rule |
 | `detect_image_name lowercases the result` | Lowercase |
+| `detect_image_name uses repo-level image_name.conf when present` | Per-repo override (env var) |
+| `detect_image_name auto-discovers image_name.conf via BASE_PATH` | Per-repo auto-discover |
+| `detect_image_name reads env_example rule from conf` | env_example rule |
+| `detect_image_name applies rules in order (first match wins)` | Rule order |
+| `detect_image_name skips comments and empty lines in conf` | Conf parsing |
+| `detect_image_name skips whitespace-only lines in conf` | Conf parsing |
+| `detect_image_name returns unknown when no rule matches and no basename` | Unknown fallback |
 | `detect_ws_path strategy 1: docker_* finds sibling *_ws` | Sibling scan |
 | `detect_ws_path strategy 1: docker_* without sibling falls through` | No sibling |
 | `detect_ws_path strategy 2: finds _ws component in path` | Path traversal |
@@ -36,7 +43,7 @@ Template self-tests: **142 tests** total.
 | `main sources existing .env and reuses valid WS_PATH` | WS_PATH reuse |
 | `main re-detects WS_PATH when path in .env no longer exists` | Stale WS_PATH |
 | `main reads IMAGE_NAME from .env.example when detection returns unknown` | .env.example fallback |
-| `main warns when IMAGE_NAME is unknown and no .env.example` | WARNING when both fail |
+| `main uses basename for repo without docker_/_ws naming` | basename fallback |
 | `main uses BASH_SOURCE fallback when --base-path not given` | Fallback path |
 | `default _base_path resolves to repo root, not script dir` | Regression test |
 | `main returns error on unknown argument` | Error handling |

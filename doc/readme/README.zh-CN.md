@@ -236,7 +236,8 @@ template/
 ├── dockerfile/
 │   ├── Dockerfile.test-tools         # 预构建测试工具 image
 │   └── Dockerfile.example            # 新 repo 的 Dockerfile 模板
-├── config/                           # Shell/工具配置
+├── config/                           # Shell/工具配置 + IMAGE_NAME 规则
+│   ├── image_name.conf               # 默认 IMAGE_NAME 检测规则
 │   ├── pip/
 │   └── shell/
 │       ├── bashrc

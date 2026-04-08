@@ -10,6 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `build.sh`: `--no-cache` flag for force rebuild (passes to both
   test-tools image build and docker compose build)
+- `config/image_name.conf`: rule-driven IMAGE_NAME detection
+  - Rule types: `prefix:`, `suffix:`, `env_example`, `basename`
+  - Per-repo override: place `image_name.conf` in repo root
+  - Default rules: `prefix:docker_` → `suffix:_ws` → `env_example` → `basename`
+- `init.sh --gen-image-conf`: copy template's image_name.conf to repo root
+  for per-repo customization
+
+### Changed
+- `detect_image_name`: refactored to read rules from `image_name.conf` instead
+  of hardcoded logic. Default conf includes `basename` so most repos work
+  without `.env.example`.
 
 ### Fixed
 - `stop.sh`: remove orphan container left by `docker compose run --name`

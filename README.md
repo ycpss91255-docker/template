@@ -236,7 +236,8 @@ template/
 ├── dockerfile/
 │   ├── Dockerfile.test-tools         # Pre-built test tools image
 │   └── Dockerfile.example            # Dockerfile template for new repos
-├── config/                           # Shell/tool configs
+├── config/                           # Shell/tool configs + IMAGE_NAME rules
+│   ├── image_name.conf               # Default IMAGE_NAME detection rules
 │   ├── pip/
 │   └── shell/
 │       ├── bashrc
