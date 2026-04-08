@@ -42,9 +42,9 @@ jobs:
           ARCHIVE_NAME="template-${VERSION}"
 
           mkdir -p "${ARCHIVE_NAME}"
-          cp -r build.sh run.sh exec.sh stop.sh \
-                .hadolint.yaml Makefile Makefile.ci compose.yaml \
-                config/ test/ script/ doc/ \
+          cp -r init.sh upgrade.sh \
+                .hadolint.yaml Makefile.ci compose.yaml \
+                config/ dockerfile/ test/ script/ doc/ \
                 README.md LICENSE \
                 "${ARCHIVE_NAME}/"
 
