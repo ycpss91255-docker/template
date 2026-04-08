@@ -139,6 +139,23 @@ setup() {
     assert_success
 }
 
+@test "build.sh keeps test-tools image by default (cleanup gated by CLEAN_TOOLS)" {
+    # Default behavior: do NOT auto-remove test-tools:local
+    # cleanup must be conditional on CLEAN_TOOLS
+    run grep -E 'CLEAN_TOOLS.*==.*true' /source/script/docker/build.sh
+    assert_success
+}
+
+@test "build.sh supports --clean-tools flag" {
+    run grep -E '\-\-clean-tools' /source/script/docker/build.sh
+    assert_success
+}
+
+@test "build.sh removes test-tools image when --clean-tools is set" {
+    run grep -E 'CLEAN_TOOLS.*=.*true' /source/script/docker/build.sh
+    assert_success
+}
+
 @test "run.sh uses set -euo pipefail" {
     run grep "set -euo pipefail" /source/script/docker/run.sh
     assert_success

@@ -1,6 +1,6 @@
 # TEST.md
 
-Template self-tests: **153 tests** total.
+Template self-tests: **156 tests** total.
 
 ## Test Files
 
@@ -67,7 +67,7 @@ Template self-tests: **153 tests** total.
 | `main --lang zh sets Chinese messages` | --lang flag |
 | `main --lang requires a value` | Missing --lang value |
 
-### test/unit/template_spec.bats (41)
+### test/unit/template_spec.bats (44)
 
 | Test | Description |
 |------|-------------|
@@ -95,6 +95,9 @@ Template self-tests: **153 tests** total.
 | `build.sh uses set -euo pipefail` | Shell convention |
 | `build.sh supports --no-cache flag` | Force rebuild flag |
 | `build.sh passes --no-cache to docker compose build when set` | NO_CACHE forwarded |
+| `build.sh keeps test-tools image by default (cleanup gated by CLEAN_TOOLS)` | Default keep tools |
+| `build.sh supports --clean-tools flag` | Clean tools flag |
+| `build.sh removes test-tools image when --clean-tools is set` | CLEAN_TOOLS forwarded |
 | `run.sh uses set -euo pipefail` | Shell convention |
 | `exec.sh uses set -euo pipefail` | Shell convention |
 | `stop.sh uses set -euo pipefail` | Shell convention |
