@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `build.sh`: `--clean-tools` flag to remove `test-tools:local` image after build
+- `script/docker/i18n.sh`: shared `_detect_lang()` and `_LANG` initialization
+  - Sourced by build.sh, run.sh, exec.sh, stop.sh, setup.sh
+  - Eliminates ~28 lines of duplication across 5 scripts
+  - Adding a new language now requires editing only one file
 
 ### Changed
 - `build.sh`: keep `test-tools:local` image by default (was removed on EXIT)

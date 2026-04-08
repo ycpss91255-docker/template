@@ -482,6 +482,7 @@ EOF
     local _repo_root="${TEMP_DIR}/docker_myapp"
     mkdir -p "${_repo_root}/template/script/docker" "${_repo_root}/template/config"
     cp /source/script/docker/setup.sh "${_repo_root}/template/script/docker/setup.sh"
+    cp /source/script/docker/i18n.sh "${_repo_root}/template/script/docker/i18n.sh"
     cp /source/config/image_name.conf "${_repo_root}/template/config/image_name.conf"
 
     # Create a dummy ws for detect_ws_path
