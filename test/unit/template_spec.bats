@@ -218,6 +218,11 @@ setup() {
     assert [ -f /source/script/docker/i18n.sh ]
 }
 
+@test "Dockerfile.test-tools includes bats-mock" {
+    run grep 'bats-mock' /source/dockerfile/Dockerfile.test-tools
+    assert_success
+}
+
 @test "i18n.sh defines _detect_lang function" {
     run grep -E '^_detect_lang\(\)' /source/script/docker/i18n.sh
     assert_success

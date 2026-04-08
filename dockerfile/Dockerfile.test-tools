@@ -1,6 +1,6 @@
 # Dockerfile.test-tools - Pre-built test tools for Docker container repos
 #
-# Contains: ShellCheck, Hadolint, Bats (with bats-support + bats-assert)
+# Contains: ShellCheck, Hadolint, Bats (with bats-support + bats-assert + bats-mock)
 #
 # Usage:
 #   docker build -t test-tools:local -f template/dockerfile/Dockerfile.test-tools .
@@ -14,7 +14,9 @@ RUN apk add --no-cache git && \
     git clone --depth 1 -b v0.3.0 \
         https://github.com/bats-core/bats-support /bats/bats-support && \
     git clone --depth 1 -b v2.1.0 \
-        https://github.com/bats-core/bats-assert  /bats/bats-assert
+        https://github.com/bats-core/bats-assert  /bats/bats-assert && \
+    git clone --depth 1 -b v1.2.5 \
+        https://github.com/jasonkarns/bats-mock   /bats/bats-mock
 
 FROM alpine:latest AS lint-tools
 RUN apk add --no-cache curl xz && \
