@@ -1,6 +1,6 @@
 # TEST.md
 
-Template self-tests: **156 tests** total.
+Template self-tests: **168 tests** total.
 
 ## Test Files
 
@@ -67,7 +67,7 @@ Template self-tests: **156 tests** total.
 | `main --lang zh sets Chinese messages` | --lang flag |
 | `main --lang requires a value` | Missing --lang value |
 
-### test/unit/template_spec.bats (44)
+### test/unit/template_spec.bats (56)
 
 | Test | Description |
 |------|-------------|
@@ -108,6 +108,18 @@ Template self-tests: **156 tests** total.
 | `exec.sh sources .env` | Env loading |
 | `stop.sh sources .env` | Env loading |
 | `stop.sh removes orphan run-mode container by name` | docker rm fallback |
+| `script/docker/i18n.sh exists` | i18n module exists |
+| `i18n.sh defines _detect_lang function` | _detect_lang in i18n.sh |
+| `build.sh sources i18n.sh` | build.sh uses shared i18n |
+| `run.sh sources i18n.sh` | run.sh uses shared i18n |
+| `exec.sh sources i18n.sh` | exec.sh uses shared i18n |
+| `stop.sh sources i18n.sh` | stop.sh uses shared i18n |
+| `setup.sh sources i18n.sh` | setup.sh uses shared i18n |
+| `build.sh does not redefine _detect_lang` | No duplication |
+| `run.sh does not redefine _detect_lang` | No duplication |
+| `exec.sh does not redefine _detect_lang` | No duplication |
+| `stop.sh does not redefine _detect_lang` | No duplication |
+| `setup.sh does not redefine _detect_lang` | No duplication |
 | `upgrade.sh runs init.sh after subtree pull` | Sync symlinks |
 | `upgrade.sh writes target_ver after init.sh (to override init's latest detection)` | Version override |
 | `run.sh contains XDG_SESSION_TYPE check` | X11/Wayland branch |

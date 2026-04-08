@@ -211,6 +211,69 @@ setup() {
 }
 
 # ════════════════════════════════════════════════════════════════════
+# i18n.sh shared module
+# ════════════════════════════════════════════════════════════════════
+
+@test "script/docker/i18n.sh exists" {
+    assert [ -f /source/script/docker/i18n.sh ]
+}
+
+@test "i18n.sh defines _detect_lang function" {
+    run grep -E '^_detect_lang\(\)' /source/script/docker/i18n.sh
+    assert_success
+}
+
+@test "build.sh sources i18n.sh" {
+    run grep -E 'source.*i18n\.sh' /source/script/docker/build.sh
+    assert_success
+}
+
+@test "run.sh sources i18n.sh" {
+    run grep -E 'source.*i18n\.sh' /source/script/docker/run.sh
+    assert_success
+}
+
+@test "exec.sh sources i18n.sh" {
+    run grep -E 'source.*i18n\.sh' /source/script/docker/exec.sh
+    assert_success
+}
+
+@test "stop.sh sources i18n.sh" {
+    run grep -E 'source.*i18n\.sh' /source/script/docker/stop.sh
+    assert_success
+}
+
+@test "setup.sh sources i18n.sh" {
+    run grep -E 'source.*i18n\.sh' /source/script/docker/setup.sh
+    assert_success
+}
+
+@test "build.sh does not redefine _detect_lang" {
+    run grep -cE '^_detect_lang\(\)' /source/script/docker/build.sh
+    assert_output "0"
+}
+
+@test "run.sh does not redefine _detect_lang" {
+    run grep -cE '^_detect_lang\(\)' /source/script/docker/run.sh
+    assert_output "0"
+}
+
+@test "exec.sh does not redefine _detect_lang" {
+    run grep -cE '^_detect_lang\(\)' /source/script/docker/exec.sh
+    assert_output "0"
+}
+
+@test "stop.sh does not redefine _detect_lang" {
+    run grep -cE '^_detect_lang\(\)' /source/script/docker/stop.sh
+    assert_output "0"
+}
+
+@test "setup.sh does not redefine _detect_lang" {
+    run grep -cE '^_detect_lang\(\)' /source/script/docker/setup.sh
+    assert_output "0"
+}
+
+# ════════════════════════════════════════════════════════════════════
 # upgrade.sh
 # ════════════════════════════════════════════════════════════════════
 
