@@ -1,6 +1,6 @@
 # TEST.md
 
-Template self-tests: **168 tests** total.
+Template self-tests: **169 tests** total.
 
 ## Test Files
 
@@ -67,7 +67,7 @@ Template self-tests: **168 tests** total.
 | `main --lang zh sets Chinese messages` | --lang flag |
 | `main --lang requires a value` | Missing --lang value |
 
-### test/unit/template_spec.bats (56)
+### test/unit/template_spec.bats (57)
 
 | Test | Description |
 |------|-------------|
@@ -109,6 +109,7 @@ Template self-tests: **168 tests** total.
 | `stop.sh sources .env` | Env loading |
 | `stop.sh removes orphan run-mode container by name` | docker rm fallback |
 | `script/docker/i18n.sh exists` | i18n module exists |
+| `Dockerfile.test-tools includes bats-mock` | bats-mock available in test image |
 | `i18n.sh defines _detect_lang function` | _detect_lang in i18n.sh |
 | `build.sh sources i18n.sh` | build.sh uses shared i18n |
 | `run.sh sources i18n.sh` | run.sh uses shared i18n |

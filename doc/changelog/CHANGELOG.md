@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Sourced by build.sh, run.sh, exec.sh, stop.sh, setup.sh
   - Eliminates ~28 lines of duplication across 5 scripts
   - Adding a new language now requires editing only one file
+- `dockerfile/Dockerfile.test-tools`: include `bats-mock` (jasonkarns v1.2.5)
+  - Other repos' smoke tests can now use `stub`/`unstub` for command mocking
 
 ### Changed
 - `build.sh`: keep `test-tools:local` image by default (was removed on EXIT)
