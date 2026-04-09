@@ -175,33 +175,59 @@ setup() {
 # Docker compose project name (-p)
 # ════════════════════════════════════════════════════════════════════
 
-@test "build.sh uses -p for compose project name" {
-    run grep -E '\-p.*DOCKER_HUB_USER.*IMAGE_NAME' /source/script/docker/build.sh
+@test "_lib.sh derives PROJECT_NAME from DOCKER_HUB_USER and IMAGE_NAME" {
+    # Project name derivation lives in _lib.sh and is shared by all callers.
+    run grep -E 'PROJECT_NAME=.*DOCKER_HUB_USER.*IMAGE_NAME' /source/script/docker/_lib.sh
     assert_success
 }
 
-@test "run.sh derives project name from DOCKER_HUB_USER and IMAGE_NAME" {
-    run grep -E 'PROJECT_NAME=.*DOCKER_HUB_USER.*IMAGE_NAME' /source/script/docker/run.sh
+@test "_lib.sh _compose_project wraps -p with PROJECT_NAME" {
+    run grep -E '\-p .*PROJECT_NAME' /source/script/docker/_lib.sh
     assert_success
 }
 
-@test "exec.sh derives project name from DOCKER_HUB_USER and IMAGE_NAME" {
-    run grep -E 'PROJECT_NAME=.*DOCKER_HUB_USER.*IMAGE_NAME' /source/script/docker/exec.sh
+@test "build.sh routes compose call through _compose_project" {
+    run grep -E '_compose_project ' /source/script/docker/build.sh
     assert_success
 }
 
-@test "stop.sh derives project name from DOCKER_HUB_USER and IMAGE_NAME" {
-    run grep -E 'DOCKER_HUB_USER.*IMAGE_NAME' /source/script/docker/stop.sh
+@test "run.sh routes compose calls through _compose_project" {
+    run grep -E '_compose_project ' /source/script/docker/run.sh
     assert_success
 }
 
-@test "exec.sh sources .env" {
-    run grep 'source.*\.env' /source/script/docker/exec.sh
+@test "exec.sh routes compose call through _compose_project" {
+    run grep -E '_compose_project ' /source/script/docker/exec.sh
     assert_success
 }
 
-@test "stop.sh sources .env" {
-    run grep 'source.*\.env' /source/script/docker/stop.sh
+@test "stop.sh routes compose call through _compose_project" {
+    run grep -E '_compose_project ' /source/script/docker/stop.sh
+    assert_success
+}
+
+@test "exec.sh loads .env via _load_env helper" {
+    run grep -E '_load_env .*\.env' /source/script/docker/exec.sh
+    assert_success
+}
+
+@test "stop.sh loads .env via _load_env helper" {
+    run grep -E '_load_env .*\.env' /source/script/docker/stop.sh
+    assert_success
+}
+
+@test "_lib.sh defines _load_env helper" {
+    run grep -E '^_load_env\(\)' /source/script/docker/_lib.sh
+    assert_success
+}
+
+@test "_lib.sh defines _compute_project_name helper" {
+    run grep -E '^_compute_project_name\(\)' /source/script/docker/_lib.sh
+    assert_success
+}
+
+@test "_lib.sh defines _compose wrapper" {
+    run grep -E '^_compose\(\)' /source/script/docker/_lib.sh
     assert_success
 }
 
@@ -221,12 +247,16 @@ setup() {
 }
 
 @test "run.sh devel branch uses compose exec to enter shell" {
-    run grep -E '^\s*exec ' /source/script/docker/run.sh
+    # Refactored: now goes through `_compose_project exec` wrapper.
+    run grep -E '_compose_project exec' /source/script/docker/run.sh
     assert_success
 }
 
 @test "run.sh devel branch installs trap to auto-down on exit" {
-    run grep -E "trap .* down.*EXIT" /source/script/docker/run.sh
+    # Refactored: trap calls _devel_cleanup which runs compose down.
+    run grep -E 'trap _devel_cleanup EXIT' /source/script/docker/run.sh
+    assert_success
+    run grep -E '_devel_cleanup\(\)' /source/script/docker/run.sh
     assert_success
 }
 
@@ -327,23 +357,28 @@ setup() {
     assert_success
 }
 
-@test "build.sh sources i18n.sh" {
-    run grep -E 'source.*i18n\.sh' /source/script/docker/build.sh
+@test "build.sh sources _lib.sh" {
+    run grep -E 'source.*_lib\.sh' /source/script/docker/build.sh
     assert_success
 }
 
-@test "run.sh sources i18n.sh" {
-    run grep -E 'source.*i18n\.sh' /source/script/docker/run.sh
+@test "run.sh sources _lib.sh" {
+    run grep -E 'source.*_lib\.sh' /source/script/docker/run.sh
     assert_success
 }
 
-@test "exec.sh sources i18n.sh" {
-    run grep -E 'source.*i18n\.sh' /source/script/docker/exec.sh
+@test "exec.sh sources _lib.sh" {
+    run grep -E 'source.*_lib\.sh' /source/script/docker/exec.sh
     assert_success
 }
 
-@test "stop.sh sources i18n.sh" {
-    run grep -E 'source.*i18n\.sh' /source/script/docker/stop.sh
+@test "stop.sh sources _lib.sh" {
+    run grep -E 'source.*_lib\.sh' /source/script/docker/stop.sh
+    assert_success
+}
+
+@test "_lib.sh sources i18n.sh (delegates language detection)" {
+    run grep -E 'source.*i18n\.sh' /source/script/docker/_lib.sh
     assert_success
 }
 

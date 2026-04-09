@@ -5,12 +5,13 @@ set -euo pipefail
 
 FILE_PATH="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly FILE_PATH
-if [[ -f "${FILE_PATH}/template/script/docker/i18n.sh" ]]; then
+if [[ -f "${FILE_PATH}/template/script/docker/_lib.sh" ]]; then
   # shellcheck disable=SC1091
-  source "${FILE_PATH}/template/script/docker/i18n.sh"
+  source "${FILE_PATH}/template/script/docker/_lib.sh"
 else
-  # Fallback for environments without template/ tree (e.g. consumer
-  # Dockerfile /lint smoke test stage that COPYs only *.sh files)
+  # Fallback for /lint stage which COPYs only *.sh from repo root and has
+  # no template/ tree. Only _LANG is needed for `usage()`; other helpers
+  # are unused in this stage.
   _detect_lang() {
     case "${LANG:-}" in
       zh_TW*) echo "zh" ;;
@@ -135,10 +136,8 @@ if [[ "${SKIP_ENV}" == false ]]; then
 fi
 
 # Load .env for project name
-set -o allexport
-# shellcheck disable=SC1091
-source "${FILE_PATH}/.env"
-set +o allexport
+_load_env "${FILE_PATH}/.env"
+_compute_project_name ""
 
 # Build test-tools image if Dockerfile exists
 _tools_dockerfile="${FILE_PATH}/template/dockerfile/Dockerfile.test-tools"
@@ -156,7 +155,4 @@ fi
 _compose_args=()
 [[ "${NO_CACHE}" == true ]] && _compose_args+=(--no-cache)
 
-docker compose -p "${DOCKER_HUB_USER}-${IMAGE_NAME}" \
-  -f "${FILE_PATH}/compose.yaml" \
-  --env-file "${FILE_PATH}/.env" \
-  build "${_compose_args[@]}" "${TARGET}"
+_compose_project build "${_compose_args[@]}" "${TARGET}"

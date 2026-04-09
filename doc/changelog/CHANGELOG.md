@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Refactor: extracted shared helpers (`_LANG` setup, `_load_env`, `_compute_project_name`,
+  `_compose`, `_compose_project`) into `template/script/docker/_lib.sh`. `build.sh`,
+  `run.sh`, `exec.sh`, and `stop.sh` now source `_lib.sh` and call the helpers instead
+  of duplicating the same i18n / env-loading / compose-flag boilerplate.
+- `exec.sh`: passes the user command as a positional array (`"$@"`) to `compose exec`,
+  so arguments containing whitespace are preserved instead of being word-split.
+- `run.sh`: trap is now `trap _devel_cleanup EXIT` (calls a named function) instead of
+  an inline string-expanded command, matching `build.sh`'s style.
+
+No user-facing behavior change.
+
 ## [v0.6.8] - 2026-04-09
 
 ### Added

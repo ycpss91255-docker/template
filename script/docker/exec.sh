@@ -5,10 +5,11 @@ set -euo pipefail
 
 FILE_PATH="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly FILE_PATH
-if [[ -f "${FILE_PATH}/template/script/docker/i18n.sh" ]]; then
+if [[ -f "${FILE_PATH}/template/script/docker/_lib.sh" ]]; then
   # shellcheck disable=SC1091
-  source "${FILE_PATH}/template/script/docker/i18n.sh"
+  source "${FILE_PATH}/template/script/docker/_lib.sh"
 else
+  # Fallback for /lint stage. See build.sh for rationale.
   _detect_lang() {
     case "${LANG:-}" in
       zh_TW*) echo "zh" ;;
@@ -124,26 +125,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-CMD="${*:-bash}"
-
-# Load .env for project name
-set -o allexport
-# shellcheck disable=SC1091
-source "${FILE_PATH}/.env"
-set +o allexport
-
-# Append instance suffix to project name (and to compose.yaml's container_name
-# via the INSTANCE_SUFFIX env var) so we target the right instance.
-if [[ -n "${INSTANCE}" ]]; then
-  INSTANCE_SUFFIX="-${INSTANCE}"
-else
-  INSTANCE_SUFFIX=""
+# Default to bash when no command is supplied. Using an array preserves
+# arguments containing whitespace, unlike the previous `${CMD}` splitting.
+if [[ $# -eq 0 ]]; then
+  set -- bash
 fi
-export INSTANCE_SUFFIX
-PROJECT_NAME="${DOCKER_HUB_USER}-${IMAGE_NAME}${INSTANCE_SUFFIX}"
 
-# shellcheck disable=SC2086  # Intentional word splitting for multi-word commands
-docker compose -p "${PROJECT_NAME}" \
-  -f "${FILE_PATH}/compose.yaml" \
-  --env-file "${FILE_PATH}/.env" \
-  exec "${TARGET}" ${CMD}
+# Load .env, derive PROJECT_NAME (sets/exports INSTANCE_SUFFIX too).
+_load_env "${FILE_PATH}/.env"
+_compute_project_name "${INSTANCE}"
+
+_compose_project exec "${TARGET}" "$@"

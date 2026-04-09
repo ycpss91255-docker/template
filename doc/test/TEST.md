@@ -1,6 +1,6 @@
 # TEST.md
 
-Template self-tests: **213 tests** total (192 unit + 21 integration).
+Template self-tests: **219 tests** total (198 unit + 21 integration).
 
 ## Test Files
 
@@ -67,7 +67,7 @@ Template self-tests: **213 tests** total (192 unit + 21 integration).
 | `main --lang zh sets Chinese messages` | --lang flag |
 | `main --lang requires a value` | Missing --lang value |
 
-### test/unit/template_spec.bats (78)
+### test/unit/template_spec.bats (84)
 
 | Test | Description |
 |------|-------------|
@@ -101,12 +101,17 @@ Template self-tests: **213 tests** total (192 unit + 21 integration).
 | `run.sh uses set -euo pipefail` | Shell convention |
 | `exec.sh uses set -euo pipefail` | Shell convention |
 | `stop.sh uses set -euo pipefail` | Shell convention |
-| `build.sh uses -p for compose project name` | Compose project |
-| `run.sh uses -p for compose project name` | Compose project |
-| `exec.sh uses -p for compose project name` | Compose project |
-| `stop.sh uses -p for compose project name` | Compose project |
-| `exec.sh sources .env` | Env loading |
-| `stop.sh sources .env` | Env loading |
+| `_lib.sh derives PROJECT_NAME from DOCKER_HUB_USER and IMAGE_NAME` | Shared derivation |
+| `_lib.sh _compose_project wraps -p with PROJECT_NAME` | Shared compose wrapper |
+| `_lib.sh defines _load_env helper` | Shared env loader |
+| `_lib.sh defines _compute_project_name helper` | Shared helper |
+| `_lib.sh defines _compose wrapper` | Shared compose wrapper |
+| `build.sh routes compose call through _compose_project` | Uses shared lib |
+| `run.sh routes compose calls through _compose_project` | Uses shared lib |
+| `exec.sh routes compose call through _compose_project` | Uses shared lib |
+| `stop.sh routes compose call through _compose_project` | Uses shared lib |
+| `exec.sh loads .env via _load_env helper` | Uses shared lib |
+| `stop.sh loads .env via _load_env helper` | Uses shared lib |
 | `stop.sh no longer needs orphan cleanup (run.sh devel uses up not run)` | No more orphan |
 | `run.sh devel target uses compose up -d (not compose run --name)` | up + exec model |
 | `run.sh devel branch uses compose exec to enter shell` | up + exec model |
@@ -128,10 +133,11 @@ Template self-tests: **213 tests** total (192 unit + 21 integration).
 | `script/docker/i18n.sh exists` | i18n module exists |
 | `Dockerfile.test-tools includes bats-mock` | bats-mock available in test image |
 | `i18n.sh defines _detect_lang function` | _detect_lang in i18n.sh |
-| `build.sh sources i18n.sh` | build.sh uses shared i18n |
-| `run.sh sources i18n.sh` | run.sh uses shared i18n |
-| `exec.sh sources i18n.sh` | exec.sh uses shared i18n |
-| `stop.sh sources i18n.sh` | stop.sh uses shared i18n |
+| `build.sh sources _lib.sh` | build.sh uses shared lib |
+| `run.sh sources _lib.sh` | run.sh uses shared lib |
+| `exec.sh sources _lib.sh` | exec.sh uses shared lib |
+| `stop.sh sources _lib.sh` | stop.sh uses shared lib |
+| `_lib.sh sources i18n.sh (delegates language detection)` | _lib delegates i18n |
 | `setup.sh sources i18n.sh` | setup.sh uses shared i18n |
 | `build.sh -h works when i18n.sh is missing (consumer Dockerfile /lint scenario)` | i18n fallback |
 | `run.sh -h works when i18n.sh is missing` | i18n fallback |
