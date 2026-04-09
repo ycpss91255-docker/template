@@ -1,6 +1,6 @@
 # TEST.md
 
-Template self-tests: **246 tests** total (225 unit + 21 integration).
+Template self-tests: **247 tests** total (226 unit + 21 integration).
 
 ## Test Files
 
@@ -87,7 +87,7 @@ Template self-tests: **246 tests** total (225 unit + 21 integration).
 | `main --lang zh sets Chinese messages` | --lang flag |
 | `main --lang requires a value` | Missing --lang value |
 
-### test/unit/template_spec.bats (96)
+### test/unit/template_spec.bats (97)
 
 | Test | Description |
 |------|-------------|
@@ -136,6 +136,7 @@ Template self-tests: **246 tests** total (225 unit + 21 integration).
 | `run.sh devel target uses compose up -d (not compose run --name)` | up + exec model |
 | `run.sh devel branch uses compose exec to enter shell` | up + exec model |
 | `run.sh devel branch installs trap to auto-down on exit` | Auto cleanup |
+| `run.sh _devel_cleanup uses short timeout to avoid 10s grace period` | Fast exit |
 | `run.sh non-devel TARGET still uses compose run --rm` | One-shot stages |
 | `run.sh devel branch does not use 'compose run --name'` | Old pattern gone |
 | `run.sh supports --instance flag` | --instance |

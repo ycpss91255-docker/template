@@ -168,8 +168,12 @@ fi
 
 # _devel_cleanup tears down the project on shell exit so the container does
 # not outlive the foreground `./run.sh` session.
+#
+# `down -t 0` skips the default 10s SIGTERM grace period: the user already
+# exited the interactive bash, so there is nothing to drain gracefully —
+# without -t 0 the script appears to hang for ~10s after `exit`.
 _devel_cleanup() {
-  _compose_project down >/dev/null 2>&1 || true
+  _compose_project down -t 0 >/dev/null 2>&1 || true
 }
 
 if [[ "${DETACH}" == true ]]; then
