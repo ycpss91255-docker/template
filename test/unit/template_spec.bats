@@ -260,6 +260,16 @@ setup() {
     assert_success
 }
 
+@test "run.sh _devel_cleanup uses short timeout to avoid 10s grace period" {
+    # Regression: compose down's default 10s SIGTERM grace makes ./run.sh
+    # appear to hang for ~10s after the user exits the bash shell. Interactive
+    # devel doesn't need graceful shutdown — the user already exited.
+    run grep -E '_devel_cleanup\(\)' /source/script/docker/run.sh
+    assert_success
+    run grep -E 'down -t 0|down --timeout 0' /source/script/docker/run.sh
+    assert_success
+}
+
 @test "run.sh non-devel TARGET still uses compose run --rm" {
     # test/runtime/etc one-shots stay on compose run --rm (no exec needed)
     run grep -E 'run --rm' /source/script/docker/run.sh
