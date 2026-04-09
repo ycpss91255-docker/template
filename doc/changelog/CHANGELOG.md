@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.6.5] - 2026-04-09
+
+### Fixed
+- `build.sh`/`run.sh`/`exec.sh`/`stop.sh`: graceful fallback when `i18n.sh` is missing
+  - v0.6.1 added `source template/script/docker/i18n.sh` but consumer Dockerfile
+    `test` stages do `COPY *.sh /lint/` without the template tree, so the source
+    failed and broke smoke tests in all consumer repos
+  - Fix: each script checks for i18n.sh and falls back to inline `_detect_lang`
+    if missing — no Dockerfile changes required in consumer repos
+
 ## [v0.6.4] - 2026-04-09
 
 ### Fixed
@@ -188,6 +198,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dockerfile `CONFIG_SRC` path: `docker_setup_helper/src/config` → `template/config`
 - Shared smoke tests loaded via `COPY template/smoke_test/` in Dockerfile (not symlinks)
 
+[v0.6.5]: https://github.com/ycpss91255-docker/template/compare/v0.6.4...v0.6.5
 [v0.6.4]: https://github.com/ycpss91255-docker/template/compare/v0.6.3...v0.6.4
 [v0.6.3]: https://github.com/ycpss91255-docker/template/compare/v0.6.2...v0.6.3
 [v0.6.2]: https://github.com/ycpss91255-docker/template/compare/v0.6.1...v0.6.2

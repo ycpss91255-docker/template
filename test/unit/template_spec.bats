@@ -253,27 +253,48 @@ setup() {
     assert_success
 }
 
-@test "build.sh does not redefine _detect_lang" {
-    run grep -cE '^_detect_lang\(\)' /source/script/docker/build.sh
-    assert_output "0"
+@test "build.sh -h works when i18n.sh is missing (consumer Dockerfile /lint scenario)" {
+    # Regression: consumer Dockerfile copies *.sh into /lint without template/
+    # tree, so sourcing template/script/docker/i18n.sh fails. build.sh must
+    # gracefully fall back to inline _detect_lang so smoke tests pass.
+    local _tmp
+    _tmp="$(mktemp -d)"
+    cp /source/script/docker/build.sh "${_tmp}/build.sh"
+    run bash "${_tmp}/build.sh" -h
+    assert_success
+    assert_output --partial "Usage"
+    rm -rf "${_tmp}"
 }
 
-@test "run.sh does not redefine _detect_lang" {
-    run grep -cE '^_detect_lang\(\)' /source/script/docker/run.sh
-    assert_output "0"
+@test "run.sh -h works when i18n.sh is missing" {
+    local _tmp
+    _tmp="$(mktemp -d)"
+    cp /source/script/docker/run.sh "${_tmp}/run.sh"
+    run bash "${_tmp}/run.sh" -h
+    assert_success
+    rm -rf "${_tmp}"
 }
 
-@test "exec.sh does not redefine _detect_lang" {
-    run grep -cE '^_detect_lang\(\)' /source/script/docker/exec.sh
-    assert_output "0"
+@test "exec.sh -h works when i18n.sh is missing" {
+    local _tmp
+    _tmp="$(mktemp -d)"
+    cp /source/script/docker/exec.sh "${_tmp}/exec.sh"
+    run bash "${_tmp}/exec.sh" -h
+    assert_success
+    rm -rf "${_tmp}"
 }
 
-@test "stop.sh does not redefine _detect_lang" {
-    run grep -cE '^_detect_lang\(\)' /source/script/docker/stop.sh
-    assert_output "0"
+@test "stop.sh -h works when i18n.sh is missing" {
+    local _tmp
+    _tmp="$(mktemp -d)"
+    cp /source/script/docker/stop.sh "${_tmp}/stop.sh"
+    run bash "${_tmp}/stop.sh" -h
+    assert_success
+    rm -rf "${_tmp}"
 }
 
 @test "setup.sh does not redefine _detect_lang" {
+    # setup.sh is not COPY'd into consumer /lint stage, so no fallback needed
     run grep -cE '^_detect_lang\(\)' /source/script/docker/setup.sh
     assert_output "0"
 }

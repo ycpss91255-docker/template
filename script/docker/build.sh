@@ -5,8 +5,22 @@ set -euo pipefail
 
 FILE_PATH="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly FILE_PATH
-# shellcheck disable=SC1091
-source "${FILE_PATH}/template/script/docker/i18n.sh"
+if [[ -f "${FILE_PATH}/template/script/docker/i18n.sh" ]]; then
+  # shellcheck disable=SC1091
+  source "${FILE_PATH}/template/script/docker/i18n.sh"
+else
+  # Fallback for environments without template/ tree (e.g. consumer
+  # Dockerfile /lint smoke test stage that COPYs only *.sh files)
+  _detect_lang() {
+    case "${LANG:-}" in
+      zh_TW*) echo "zh" ;;
+      zh_CN*|zh_SG*) echo "zh-CN" ;;
+      ja*) echo "ja" ;;
+      *) echo "en" ;;
+    esac
+  }
+  _LANG="${SETUP_LANG:-$(_detect_lang)}"
+fi
 
 usage() {
   case "${_LANG}" in

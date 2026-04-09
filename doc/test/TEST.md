@@ -116,10 +116,10 @@ Template self-tests: **175 tests** total.
 | `exec.sh sources i18n.sh` | exec.sh uses shared i18n |
 | `stop.sh sources i18n.sh` | stop.sh uses shared i18n |
 | `setup.sh sources i18n.sh` | setup.sh uses shared i18n |
-| `build.sh does not redefine _detect_lang` | No duplication |
-| `run.sh does not redefine _detect_lang` | No duplication |
-| `exec.sh does not redefine _detect_lang` | No duplication |
-| `stop.sh does not redefine _detect_lang` | No duplication |
+| `build.sh -h works when i18n.sh is missing (consumer Dockerfile /lint scenario)` | i18n fallback |
+| `run.sh -h works when i18n.sh is missing` | i18n fallback |
+| `exec.sh -h works when i18n.sh is missing` | i18n fallback |
+| `stop.sh -h works when i18n.sh is missing` | i18n fallback |
 | `setup.sh does not redefine _detect_lang` | No duplication |
 | `upgrade.sh runs init.sh after subtree pull` | Sync symlinks |
 | `upgrade.sh writes target_ver after init.sh (to override init's latest detection)` | Version override |
