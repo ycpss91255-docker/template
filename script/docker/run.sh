@@ -5,10 +5,11 @@ set -euo pipefail
 
 FILE_PATH="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly FILE_PATH
-if [[ -f "${FILE_PATH}/template/script/docker/i18n.sh" ]]; then
+if [[ -f "${FILE_PATH}/template/script/docker/_lib.sh" ]]; then
   # shellcheck disable=SC1091
-  source "${FILE_PATH}/template/script/docker/i18n.sh"
+  source "${FILE_PATH}/template/script/docker/_lib.sh"
 else
+  # Fallback for /lint stage. See build.sh for rationale.
   _detect_lang() {
     case "${LANG:-}" in
       zh_TW*) echo "zh" ;;
@@ -124,25 +125,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# INSTANCE_SUFFIX is appended to project name and (via env var) to compose.yaml's
-# container_name: ${IMAGE_NAME}${INSTANCE_SUFFIX:-}
-if [[ -n "${INSTANCE}" ]]; then
-  INSTANCE_SUFFIX="-${INSTANCE}"
-else
-  INSTANCE_SUFFIX=""
-fi
-export INSTANCE_SUFFIX
-
 # Generate / refresh .env
 if [[ "${SKIP_ENV}" == false ]]; then
   "${FILE_PATH}/template/script/docker/setup.sh" --base-path "${FILE_PATH}" --lang "${_LANG}"
 fi
 
-# Load .env for xhost
-set -o allexport
-# shellcheck disable=SC1091
-source "${FILE_PATH}/.env"
-set +o allexport
+# Load .env, derive PROJECT_NAME (sets/exports INSTANCE_SUFFIX too).
+_load_env "${FILE_PATH}/.env"
+_compute_project_name "${INSTANCE}"
 
 # Allow X11 forwarding (X11 or XWayland)
 if [[ "${XDG_SESSION_TYPE:-x11}" == "wayland" ]]; then
@@ -151,9 +141,7 @@ else
   xhost +local: >/dev/null 2>&1 || true
 fi
 
-# Project name includes instance suffix so parallel instances have isolated
-# networks/volumes/containers.
-PROJECT_NAME="${DOCKER_HUB_USER}-${IMAGE_NAME}${INSTANCE_SUFFIX}"
+# Container name mirrors compose.yaml's `container_name:`.
 CONTAINER_NAME="${IMAGE_NAME}${INSTANCE_SUFFIX}"
 
 # Refuse to start if the target container is already running and user did not
@@ -168,33 +156,23 @@ if [[ "${DETACH}" != true && "${TARGET}" == "devel" ]]; then
   fi
 fi
 
+# _devel_cleanup tears down the project on shell exit so the container does
+# not outlive the foreground `./run.sh` session.
+_devel_cleanup() {
+  _compose_project down >/dev/null 2>&1 || true
+}
+
 if [[ "${DETACH}" == true ]]; then
-  docker compose -p "${PROJECT_NAME}" \
-    -f "${FILE_PATH}/compose.yaml" \
-    --env-file "${FILE_PATH}/.env" \
-    down 2>/dev/null || true
-  docker compose -p "${PROJECT_NAME}" \
-    -f "${FILE_PATH}/compose.yaml" \
-    --env-file "${FILE_PATH}/.env" \
-    up -d "${TARGET}"
+  _compose_project down 2>/dev/null || true
+  _compose_project up -d "${TARGET}"
 elif [[ "${TARGET}" == "devel" ]]; then
-  # Foreground devel: use `up -d` + `exec` so a second terminal can join via
-  # `./exec.sh`. Trap auto-`down` on exit to preserve the original
+  # Foreground devel: `up -d` + `exec` so a second terminal can join via
+  # `./exec.sh`. Trap auto-`down` on exit to preserve the
   # "exit shell = container gone" semantic of the previous `compose run`.
-  # shellcheck disable=SC2064  # PROJECT_NAME must be expanded NOW, not at trap time
-  trap "docker compose -p '${PROJECT_NAME}' -f '${FILE_PATH}/compose.yaml' --env-file '${FILE_PATH}/.env' down >/dev/null 2>&1 || true" EXIT
-  docker compose -p "${PROJECT_NAME}" \
-    -f "${FILE_PATH}/compose.yaml" \
-    --env-file "${FILE_PATH}/.env" \
-    up -d "${TARGET}"
-  docker compose -p "${PROJECT_NAME}" \
-    -f "${FILE_PATH}/compose.yaml" \
-    --env-file "${FILE_PATH}/.env" \
-    exec "${TARGET}" bash
+  trap _devel_cleanup EXIT
+  _compose_project up -d "${TARGET}"
+  _compose_project exec "${TARGET}" bash
 else
-  # Other one-shot stages (test, runtime, ...): keep `compose run --rm`
-  docker compose -p "${PROJECT_NAME}" \
-    -f "${FILE_PATH}/compose.yaml" \
-    --env-file "${FILE_PATH}/.env" \
-    run --rm "${TARGET}"
+  # Other one-shot stages (test, runtime, ...): keep `compose run --rm`.
+  _compose_project run --rm "${TARGET}"
 fi

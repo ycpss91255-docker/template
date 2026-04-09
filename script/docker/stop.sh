@@ -5,10 +5,11 @@ set -euo pipefail
 
 FILE_PATH="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly FILE_PATH
-if [[ -f "${FILE_PATH}/template/script/docker/i18n.sh" ]]; then
+if [[ -f "${FILE_PATH}/template/script/docker/_lib.sh" ]]; then
   # shellcheck disable=SC1091
-  source "${FILE_PATH}/template/script/docker/i18n.sh"
+  source "${FILE_PATH}/template/script/docker/_lib.sh"
 else
+  # Fallback for /lint stage. See build.sh for rationale.
   _detect_lang() {
     case "${LANG:-}" in
       zh_TW*) echo "zh" ;;
@@ -98,21 +99,18 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Load .env for project name
-set -o allexport
-# shellcheck disable=SC1091
-source "${FILE_PATH}/.env"
-set +o allexport
+# Load .env so DOCKER_HUB_USER / IMAGE_NAME are available below.
+_load_env "${FILE_PATH}/.env"
 
-# Helper: down a single project (with the right INSTANCE_SUFFIX so compose.yaml
-# resolves the same container_name as run.sh used).
+# _down_one tears down a single instance. _compute_project_name sets and
+# exports INSTANCE_SUFFIX so compose.yaml resolves the matching container_name.
+#
+# Args:
+#   $1: instance name (empty for the default instance)
 _down_one() {
-  local _suffix="${1}"
-  local _project="${DOCKER_HUB_USER}-${IMAGE_NAME}${_suffix}"
-  INSTANCE_SUFFIX="${_suffix}" docker compose -p "${_project}" \
-    -f "${FILE_PATH}/compose.yaml" \
-    --env-file "${FILE_PATH}/.env" \
-    down "${PASSTHROUGH[@]}"
+  local instance="${1}"
+  _compute_project_name "${instance}"
+  _compose_project down "${PASSTHROUGH[@]}"
 }
 
 if [[ "${ALL_INSTANCES}" == true ]]; then
@@ -128,10 +126,11 @@ if [[ "${ALL_INSTANCES}" == true ]]; then
   fi
   for _proj in "${_projects[@]}"; do
     _suffix="${_proj#"${_prefix}"}"
-    _down_one "${_suffix}"
+    # _suffix is "" or "-name"; _down_one expects bare instance, strip the dash.
+    _down_one "${_suffix#-}"
   done
 elif [[ -n "${INSTANCE}" ]]; then
-  _down_one "-${INSTANCE}"
+  _down_one "${INSTANCE}"
 else
   _down_one ""
 fi
