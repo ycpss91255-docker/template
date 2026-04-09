@@ -7,12 +7,12 @@ coverage:
         threshold: 1%
     patch:
       default:
-        # New / modified lines: aim high but allow some uncovered lines for
-        # bash branches kcov cannot instrument (case ;; arms, /lint fallback
-        # blocks, etc.). Refactor PRs that move covered code around should
-        # not be blocked.
-        target: 80%
-        threshold: 5%
+        # Patch coverage is reported but never blocks merges. Many bash
+        # branches (case ;; arms, /lint fallback blocks, child-bash guards)
+        # are intentionally not exercised by tests, and refactor PRs that
+        # only move covered code around would otherwise be blocked. The
+        # project-level status above still guards against regressions.
+        informational: true
 
 comment:
   layout: "reach,diff,flags,files"
