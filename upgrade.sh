@@ -124,19 +124,23 @@ COMMIT
 
 _usage() {
   cat >&2 <<'EOF'
-Usage: ./template/upgrade.sh [VERSION|--check]
+Usage: ./template/upgrade.sh [VERSION|--check|--gen-image-conf]
 
 Upgrade template subtree to the latest (or specified) version.
 
 Arguments:
-  VERSION       Target version (e.g. v0.5.0). Defaults to latest tag.
-  --check       Check if an update is available (no changes made)
-  -h, --help    Show this help
+  VERSION            Target version (e.g. v0.5.0). Defaults to latest tag.
+  --check            Check if an update is available (no changes made)
+  --gen-image-conf   Copy template's image_name.conf to repo root for
+                     per-repo IMAGE_NAME detection customization
+                     (delegates to init.sh --gen-image-conf)
+  -h, --help         Show this help
 
 Examples:
-  ./template/upgrade.sh              # upgrade to latest
-  ./template/upgrade.sh v0.5.0       # upgrade to specific version
-  ./template/upgrade.sh --check      # check only
+  ./template/upgrade.sh                   # upgrade to latest
+  ./template/upgrade.sh v0.5.0            # upgrade to specific version
+  ./template/upgrade.sh --check           # check only
+  ./template/upgrade.sh --gen-image-conf  # copy image_name.conf to repo root
 EOF
   exit 0
 }
@@ -144,11 +148,15 @@ EOF
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 main() {
+  case "${1:-}" in
+    -h|--help) _usage ;;
+  esac
+
   [[ ! -d template ]] && _error "template/ not found. Run from repo root."
 
   case "${1:-}" in
-    -h|--help) _usage ;;
     --check) _check ;;
+    --gen-image-conf) ./template/init.sh --gen-image-conf ;;
     v*)
       _upgrade "$1"
       ;;
