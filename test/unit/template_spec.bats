@@ -287,6 +287,22 @@ setup() {
     assert_success
 }
 
+@test "upgrade.sh supports --gen-image-conf flag" {
+    run grep -E '\-\-gen-image-conf' /source/upgrade.sh
+    assert_success
+}
+
+@test "upgrade.sh --gen-image-conf delegates to init.sh --gen-image-conf" {
+    run grep -E 'init\.sh.*--gen-image-conf' /source/upgrade.sh
+    assert_success
+}
+
+@test "upgrade.sh --help mentions --gen-image-conf" {
+    run bash -c "bash /source/upgrade.sh --help 2>&1"
+    assert_success
+    assert_output --partial "--gen-image-conf"
+}
+
 @test "upgrade.sh writes target_ver after init.sh (to override init's latest detection)" {
     # init.sh writes latest tag to .template_version, but upgrade may target older version
     # so upgrade.sh must overwrite .template_version AFTER init.sh runs

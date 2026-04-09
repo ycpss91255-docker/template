@@ -1,6 +1,6 @@
 # TEST.md
 
-Template self-tests: **171 tests** total.
+Template self-tests: **174 tests** total.
 
 ## Test Files
 
@@ -67,7 +67,7 @@ Template self-tests: **171 tests** total.
 | `main --lang zh sets Chinese messages` | --lang flag |
 | `main --lang requires a value` | Missing --lang value |
 
-### test/unit/template_spec.bats (57)
+### test/unit/template_spec.bats (60)
 
 | Test | Description |
 |------|-------------|
@@ -123,6 +123,9 @@ Template self-tests: **171 tests** total.
 | `setup.sh does not redefine _detect_lang` | No duplication |
 | `upgrade.sh runs init.sh after subtree pull` | Sync symlinks |
 | `upgrade.sh writes target_ver after init.sh (to override init's latest detection)` | Version override |
+| `upgrade.sh supports --gen-image-conf flag` | Flag exists |
+| `upgrade.sh --gen-image-conf delegates to init.sh --gen-image-conf` | Delegation |
+| `upgrade.sh --help mentions --gen-image-conf` | Help text |
 | `run.sh contains XDG_SESSION_TYPE check` | X11/Wayland branch |
 | `run.sh contains xhost +SI:localuser for wayland` | Wayland xhost |
 | `run.sh contains xhost +local: for X11` | X11 xhost |
