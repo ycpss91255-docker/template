@@ -35,6 +35,8 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker  # use host docker daemon's image store so test-tools:local is visible
 
       - name: Create temp repo and run init.sh
         run: |
