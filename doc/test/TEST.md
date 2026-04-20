@@ -1,6 +1,6 @@
 # TEST.md
 
-Template self-tests: **295 tests** total (274 unit + 21 integration).
+Template self-tests: **343 tests** total (314 unit + 29 integration).
 
 ## Test Files
 
@@ -24,7 +24,7 @@ Template self-tests: **295 tests** total (274 unit + 21 integration).
 | `_compose without DRY_RUN tries to invoke docker compose (sanity)` | Real-call branch |
 | `_compose_project pre-fills -p / -f / --env-file from PROJECT_NAME and FILE_PATH` | Project wrapper |
 
-### test/unit/setup_spec.bats (61)
+### test/unit/setup_spec.bats (87)
 
 | Test | Description |
 |------|-------------|
@@ -89,6 +89,55 @@ Template self-tests: **295 tests** total (274 unit + 21 integration).
 | `_detect_lang is overridden by SETUP_LANG` | SETUP_LANG override |
 | `main --lang zh sets Chinese messages` | --lang flag |
 | `main --lang requires a value` | Missing --lang value |
+| `_load_conf_value reads key=value from conf file` | INI key read |
+| `_load_conf_value returns empty for missing key` | Absent key |
+| `_load_conf_value skips comment and empty lines` | Comment/blank handling |
+| `_load_conf_value trims whitespace around key and value` | Trim logic |
+| `_load_conf_value returns empty for nonexistent file` | Missing file |
+| `_load_conf_lines reads all non-comment non-empty lines` | List read |
+| `_load_conf_lines skips empty lines and comments` | Filter blanks |
+| `_load_conf_lines returns empty array for missing file` | Missing file |
+| `_resolve_conf_path honors <NAME>_CONF env var override` | Env override |
+| `_resolve_conf_path falls back to per-repo config/setup/` | Per-repo override |
+| `_resolve_conf_path falls back to template default` | Template default |
+| `_load_gpu_conf reads mode count capabilities` | GPU conf load |
+| `_load_gui_conf reads mode` | GUI conf load |
+| `_load_network_conf reads mode ipc privileged` | Network conf load |
+| `_load_volumes_conf reads mount lines into array` | Volumes conf load |
+| `_resolve_gpu mode=auto + detected=true => enabled` | GPU auto+yes |
+| `_resolve_gpu mode=auto + detected=false => disabled` | GPU auto+no |
+| `_resolve_gpu mode=force => enabled regardless of detection` | GPU force |
+| `_resolve_gpu mode=off => disabled regardless of detection` | GPU off |
+| `_resolve_gui mode=auto + DISPLAY set => enabled` | GUI auto+X11 |
+| `_resolve_gui mode=auto + WAYLAND_DISPLAY set => enabled` | GUI auto+Wayland |
+| `_resolve_gui mode=auto + both unset => disabled` | GUI auto+none |
+| `_resolve_gui mode=force => enabled regardless` | GUI force |
+| `_resolve_gui mode=off => disabled regardless` | GUI off |
+| `detect_image_name reads template/config/setup/image_name.conf` | New default path |
+| `detect_image_name honors per-repo config/setup/image_name.conf` | Per-repo override path |
+
+### test/unit/compose_gen_spec.bats (14)
+
+Tests for `generate_compose_yaml()` in `setup.sh` — conditional emission
+of GPU/GUI/extra-volume blocks, baseline structural elements, and
+env-var parameterization (network_mode/ipc/privileged with conf defaults).
+
+| Test | Description |
+|------|-------------|
+| `generate_compose_yaml outputs AUTO-GENERATED header` | Header present |
+| `generate_compose_yaml always emits workspace volume` | Baseline volume |
+| `generate_compose_yaml always emits /dev:/dev passthrough` | Baseline volume |
+| `generate_compose_yaml always emits network_mode/ipc/privileged env vars` | network.conf baked |
+| `generate_compose_yaml always emits test service with profiles: [test]` | Test service |
+| `generate_compose_yaml image field contains repo name` | Image name |
+| `generate_compose_yaml GPU enabled => deploy block present` | GPU on |
+| `generate_compose_yaml GPU disabled => no deploy block` | GPU off |
+| `generate_compose_yaml GPU with specific count and capabilities` | GPU count/caps |
+| `generate_compose_yaml GUI enabled => DISPLAY env + X11 volumes present` | GUI on |
+| `generate_compose_yaml GUI disabled => no DISPLAY env + no X11 volumes` | GUI off |
+| `generate_compose_yaml extra volumes => appended after baseline` | volumes.conf on |
+| `generate_compose_yaml empty extras => no extra volume lines` | volumes.conf empty |
+| `generate_compose_yaml with GUI+GPU+extras => all sections present` | Fully loaded |
 
 ### test/unit/template_spec.bats (100)
 
@@ -349,7 +398,7 @@ Exercises the runtime assertion helpers shipped in
 | `main copies tmux.conf to config directory` | Config copy |
 | `script runs entry_point when executed directly` | Direct-run guard |
 
-### test/integration/init_new_repo_spec.bats (21)
+### test/integration/init_new_repo_spec.bats (29)
 
 End-to-end verification that `init.sh` produces a complete repo skeleton in
 an empty directory. **Level 1** (file generation only, no Docker). The
@@ -378,5 +427,13 @@ which has access to a Docker daemon on the host runner.
 | `new repo: run.sh -h works against the generated symlink` | smoke run.sh |
 | `new repo: exec.sh -h works against the generated symlink` | smoke exec.sh |
 | `new repo: stop.sh -h works against the generated symlink` | smoke stop.sh |
-| `init.sh --gen-image-conf copies image_name.conf to repo root` | conf gen |
+| `init.sh --gen-image-conf copies image_name.conf to config/setup/` | conf gen |
 | `init.sh --gen-image-conf refuses to overwrite existing image_name.conf` | conf safety |
+| `init.sh --gen-conf gpu copies gpu.conf to config/setup/` | gpu conf gen |
+| `init.sh --gen-conf gui copies gui.conf to config/setup/` | gui conf gen |
+| `init.sh --gen-conf network copies network.conf to config/setup/` | network conf gen |
+| `init.sh --gen-conf volumes copies volumes.conf to config/setup/` | volumes conf gen |
+| `init.sh --gen-conf refuses unknown conf name` | unknown conf safety |
+| `new repo: .gitignore contains compose.yaml (derived artifact)` | gitignore compose.yaml |
+| `new repo: compose.yaml has AUTO-GENERATED header` | setup.sh generated |
+| `new repo: config/setup/ directory not created by default` | optional overrides |

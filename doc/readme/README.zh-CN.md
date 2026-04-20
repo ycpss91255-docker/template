@@ -114,7 +114,7 @@ flowchart LR
 | `script/docker/setup.sh` | 自动检测系统参数并生成 `.env` |
 | `script/docker/_lib.sh` | 共用 helper（`_load_env`、`_compose`、`_compose_project` 等） |
 | `script/docker/i18n.sh` | 共用语言检测（`_detect_lang`、`_LANG`） |
-| `config/` | Shell 配置文件（bashrc、tmux、terminator、pip）+ IMAGE_NAME 规则 |
+| `config/` | Shell 配置文件（bashrc、tmux、terminator、pip）+ `config/setup/`（per-repo runtime conf：image_name、gpu、gui、network、volumes） |
 | `test/smoke/` | 共用 smoke 测试 + runtime assertion helpers（见下方） |
 | `test/unit/` | Template 自身测试（bats + kcov） |
 | `test/integration/` | Level-1 `init.sh` 集成测试 |
@@ -177,6 +177,41 @@ assertion helpers。下游 repo 应优先使用这些 helper 而非原生的
 - `script/entrypoint.sh`
 - `doc/` 和 `README.md`
 - Repo 专属的 smoke test
+
+## 各 repo runtime 配置
+
+下游 repo 通过 `config/setup/` 里的 conf 文件驱动自己的 `compose.yaml`
+— GPU 保留、GUI env/volumes、network mode、额外 volumes 等。
+`setup.sh` 在每次 `./build.sh` / `./run.sh` 都会读 conf + 系统检测后
+重新生成 `.env` 与 `compose.yaml`，用户不需要手动编辑 `compose.yaml`。
+
+### Conf 文件
+
+Template 默认放在 `template/config/setup/`；per-repo 覆盖放在
+`<repo>/config/setup/<name>.conf`（结构镜像）。每个 conf 的查找顺序：
+`<NAME>_CONF` 环境变量 → `<repo>/config/setup/<name>.conf` → template
+默认值。
+
+| Conf | 控制 |
+|------|------|
+| `image_name.conf` | `IMAGE_NAME` 检测规则（rule-driven：`prefix:`、`suffix:`、`@env_example`、`@basename`、`@default:`） |
+| `gpu.conf` | GPU `deploy` 区块是否输出。mode：`auto`（检测 nvidia-container-toolkit）/ `force` / `off`。另有 `count`、`capabilities`。 |
+| `gui.conf` | DISPLAY / WAYLAND / X11 volume 区块是否输出。mode：`auto`（检测 `$DISPLAY`/`$WAYLAND_DISPLAY`）/ `force` / `off`。 |
+| `network.conf` | `network_mode`、`ipc`、`privileged` 值（烘焙到 compose.yaml 作为默认）。 |
+| `volumes.conf` | 除 workspace + `/dev` 以外的额外 host mount。一行一个 mount。 |
+
+### 衍生文件
+
+`compose.yaml` 与 `.env` 均加入 `.gitignore` — 真正的 source of truth
+是 conf 文件 + 检测结果。任何时候打开 `compose.yaml` 就能看到当下完整
+runtime 配置。
+
+### 生成 per-repo 覆盖
+
+```bash
+./template/init.sh --gen-conf gpu        # 复制 template gpu.conf 到 <repo>/config/setup/gpu.conf
+./template/init.sh --gen-image-conf      # 等同 --gen-conf image_name
+```
 
 ## 快速开始
 

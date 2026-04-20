@@ -185,7 +185,8 @@ EOF
 }
 
 @test "detect_image_name auto-discovers image_name.conf via BASE_PATH" {
-  cat > "${TEMP_DIR}/image_name.conf" <<EOF
+  mkdir -p "${TEMP_DIR}/config/setup"
+  cat > "${TEMP_DIR}/config/setup/image_name.conf" <<EOF
 prefix:bar_
 @basename
 EOF
@@ -470,7 +471,8 @@ EOF
   local _proj="${TEMP_DIR}/my_generic_project"
   mkdir -p "${_ws}" "${_proj}"
 
-  cat > "${_proj}/image_name.conf" <<EOF
+  mkdir -p "${_proj}/config/setup"
+  cat > "${_proj}/config/setup/image_name.conf" <<EOF
 prefix:nonexistent_
 EOF
 
@@ -514,10 +516,15 @@ EOF
   # Regression: setup.sh lives at template/script/docker/setup.sh
   # Default _base_path must go up 3 levels to repo root
   local _repo_root="${TEMP_DIR}/docker_myapp"
-  mkdir -p "${_repo_root}/template/script/docker" "${_repo_root}/template/config"
+  mkdir -p "${_repo_root}/template/script/docker" "${_repo_root}/template/config/setup"
   cp /source/script/docker/setup.sh "${_repo_root}/template/script/docker/setup.sh"
   cp /source/script/docker/i18n.sh "${_repo_root}/template/script/docker/i18n.sh"
-  cp /source/config/image_name.conf "${_repo_root}/template/config/image_name.conf"
+  cp /source/config/setup/image_name.conf "${_repo_root}/template/config/setup/image_name.conf"
+  # Also copy the other setup confs so generate_compose_yaml succeeds
+  cp /source/config/setup/gpu.conf      "${_repo_root}/template/config/setup/gpu.conf"
+  cp /source/config/setup/gui.conf      "${_repo_root}/template/config/setup/gui.conf"
+  cp /source/config/setup/network.conf  "${_repo_root}/template/config/setup/network.conf"
+  cp /source/config/setup/volumes.conf  "${_repo_root}/template/config/setup/volumes.conf"
 
   # Create a dummy ws for detect_ws_path
   local _ws="${TEMP_DIR}/myapp_ws"
@@ -666,4 +673,278 @@ EOF
 
 @test "main --lang requires a value" {
   run -127 bash -c "source /source/script/docker/setup.sh; main --lang"
+}
+
+# ════════════════════════════════════════════════════════════════════
+# _load_conf_value
+# ════════════════════════════════════════════════════════════════════
+
+@test "_load_conf_value reads key=value from conf file" {
+  local _conf="${TEMP_DIR}/test.conf"
+  cat > "${_conf}" <<'EOF'
+mode=auto
+count=all
+EOF
+  local _v=""
+  _load_conf_value "${_conf}" "mode" _v
+  assert_equal "${_v}" "auto"
+  _load_conf_value "${_conf}" "count" _v
+  assert_equal "${_v}" "all"
+}
+
+@test "_load_conf_value returns empty for missing key" {
+  local _conf="${TEMP_DIR}/test.conf"
+  cat > "${_conf}" <<'EOF'
+mode=auto
+EOF
+  local _v="preset"
+  _load_conf_value "${_conf}" "nonexistent" _v
+  assert_equal "${_v}" ""
+}
+
+@test "_load_conf_value skips comment and empty lines" {
+  local _conf="${TEMP_DIR}/test.conf"
+  cat > "${_conf}" <<'EOF'
+# this is a comment
+# mode=commented
+mode=real
+
+# trailing comment
+
+count=3
+EOF
+  local _v=""
+  _load_conf_value "${_conf}" "mode" _v
+  assert_equal "${_v}" "real"
+  _load_conf_value "${_conf}" "count" _v
+  assert_equal "${_v}" "3"
+}
+
+@test "_load_conf_value trims whitespace around key and value" {
+  local _conf="${TEMP_DIR}/test.conf"
+  printf '  mode  =  spaced  \n' > "${_conf}"
+  local _v=""
+  _load_conf_value "${_conf}" "mode" _v
+  assert_equal "${_v}" "spaced"
+}
+
+@test "_load_conf_value returns empty for nonexistent file" {
+  local _v="preset"
+  _load_conf_value "${TEMP_DIR}/missing.conf" "mode" _v
+  assert_equal "${_v}" ""
+}
+
+# ════════════════════════════════════════════════════════════════════
+# _load_conf_lines (for volumes.conf)
+# ════════════════════════════════════════════════════════════════════
+
+@test "_load_conf_lines reads all non-comment non-empty lines" {
+  local _conf="${TEMP_DIR}/volumes.conf"
+  cat > "${_conf}" <<'EOF'
+/data:/data
+/etc/machine-id:/etc/machine-id:ro
+EOF
+  local _lines=()
+  _load_conf_lines "${_conf}" _lines
+  assert_equal "${#_lines[@]}" "2"
+  assert_equal "${_lines[0]}" "/data:/data"
+  assert_equal "${_lines[1]}" "/etc/machine-id:/etc/machine-id:ro"
+}
+
+@test "_load_conf_lines skips empty lines and comments" {
+  local _conf="${TEMP_DIR}/volumes.conf"
+  cat > "${_conf}" <<'EOF'
+# header comment
+# another comment
+
+/first:/first
+
+# middle comment
+/second:/second
+
+EOF
+  local _lines=()
+  _load_conf_lines "${_conf}" _lines
+  assert_equal "${#_lines[@]}" "2"
+  assert_equal "${_lines[0]}" "/first:/first"
+  assert_equal "${_lines[1]}" "/second:/second"
+}
+
+@test "_load_conf_lines returns empty array for missing file" {
+  local _lines=("preset")
+  _load_conf_lines "${TEMP_DIR}/missing.conf" _lines
+  assert_equal "${#_lines[@]}" "0"
+}
+
+# ════════════════════════════════════════════════════════════════════
+# _resolve_conf_path (3-tier lookup)
+# ════════════════════════════════════════════════════════════════════
+
+@test "_resolve_conf_path honors <NAME>_CONF env var override" {
+  local _override="${TEMP_DIR}/override.conf"
+  touch "${_override}"
+  local _p=""
+  GPU_CONF="${_override}" _resolve_conf_path "gpu" "${TEMP_DIR}" _p
+  assert_equal "${_p}" "${_override}"
+}
+
+@test "_resolve_conf_path falls back to per-repo config/setup/" {
+  mkdir -p "${TEMP_DIR}/config/setup"
+  local _repo_conf="${TEMP_DIR}/config/setup/gpu.conf"
+  touch "${_repo_conf}"
+  unset GPU_CONF
+  local _p=""
+  _resolve_conf_path "gpu" "${TEMP_DIR}" _p
+  assert_equal "${_p}" "${_repo_conf}"
+}
+
+@test "_resolve_conf_path falls back to template default" {
+  unset GPU_CONF
+  local _p=""
+  _resolve_conf_path "gpu" "${TEMP_DIR}" _p
+  # Template default is /source/config/setup/gpu.conf inside test container
+  [[ "${_p}" == */config/setup/gpu.conf ]] || fail "expected template default, got ${_p}"
+}
+
+# ════════════════════════════════════════════════════════════════════
+# _load_gpu_conf / _load_gui_conf / _load_network_conf / _load_volumes_conf
+# ════════════════════════════════════════════════════════════════════
+
+@test "_load_gpu_conf reads mode count capabilities" {
+  mkdir -p "${TEMP_DIR}/config/setup"
+  cat > "${TEMP_DIR}/config/setup/gpu.conf" <<'EOF'
+mode=force
+count=2
+capabilities=compute utility
+EOF
+  unset GPU_CONF
+  local _mode _count _caps
+  _load_gpu_conf "${TEMP_DIR}" _mode _count _caps
+  assert_equal "${_mode}" "force"
+  assert_equal "${_count}" "2"
+  assert_equal "${_caps}" "compute utility"
+}
+
+@test "_load_gui_conf reads mode" {
+  mkdir -p "${TEMP_DIR}/config/setup"
+  cat > "${TEMP_DIR}/config/setup/gui.conf" <<'EOF'
+mode=off
+EOF
+  unset GUI_CONF
+  local _mode
+  _load_gui_conf "${TEMP_DIR}" _mode
+  assert_equal "${_mode}" "off"
+}
+
+@test "_load_network_conf reads mode ipc privileged" {
+  mkdir -p "${TEMP_DIR}/config/setup"
+  cat > "${TEMP_DIR}/config/setup/network.conf" <<'EOF'
+mode=bridge
+ipc=private
+privileged=false
+EOF
+  unset NETWORK_CONF
+  local _mode _ipc _priv
+  _load_network_conf "${TEMP_DIR}" _mode _ipc _priv
+  assert_equal "${_mode}" "bridge"
+  assert_equal "${_ipc}" "private"
+  assert_equal "${_priv}" "false"
+}
+
+@test "_load_volumes_conf reads mount lines into array" {
+  mkdir -p "${TEMP_DIR}/config/setup"
+  cat > "${TEMP_DIR}/config/setup/volumes.conf" <<'EOF'
+# header
+/data:/data
+/etc/machine-id:/etc/machine-id:ro
+EOF
+  unset VOLUMES_CONF
+  local _mounts=()
+  _load_volumes_conf "${TEMP_DIR}" _mounts
+  assert_equal "${#_mounts[@]}" "2"
+  assert_equal "${_mounts[0]}" "/data:/data"
+}
+
+# ════════════════════════════════════════════════════════════════════
+# _resolve_gpu / _resolve_gui
+# ════════════════════════════════════════════════════════════════════
+
+@test "_resolve_gpu mode=auto + detected=true => enabled" {
+  local _enabled
+  _resolve_gpu "auto" "true" _enabled
+  assert_equal "${_enabled}" "true"
+}
+
+@test "_resolve_gpu mode=auto + detected=false => disabled" {
+  local _enabled
+  _resolve_gpu "auto" "false" _enabled
+  assert_equal "${_enabled}" "false"
+}
+
+@test "_resolve_gpu mode=force => enabled regardless of detection" {
+  local _enabled
+  _resolve_gpu "force" "false" _enabled
+  assert_equal "${_enabled}" "true"
+}
+
+@test "_resolve_gpu mode=off => disabled regardless of detection" {
+  local _enabled
+  _resolve_gpu "off" "true" _enabled
+  assert_equal "${_enabled}" "false"
+}
+
+@test "_resolve_gui mode=auto + DISPLAY set => enabled" {
+  local _enabled
+  DISPLAY=":0" WAYLAND_DISPLAY="" _resolve_gui "auto" _enabled
+  assert_equal "${_enabled}" "true"
+}
+
+@test "_resolve_gui mode=auto + WAYLAND_DISPLAY set => enabled" {
+  local _enabled
+  DISPLAY="" WAYLAND_DISPLAY="wayland-0" _resolve_gui "auto" _enabled
+  assert_equal "${_enabled}" "true"
+}
+
+@test "_resolve_gui mode=auto + both unset => disabled" {
+  local _enabled
+  DISPLAY="" WAYLAND_DISPLAY="" _resolve_gui "auto" _enabled
+  assert_equal "${_enabled}" "false"
+}
+
+@test "_resolve_gui mode=force => enabled regardless" {
+  local _enabled
+  DISPLAY="" WAYLAND_DISPLAY="" _resolve_gui "force" _enabled
+  assert_equal "${_enabled}" "true"
+}
+
+@test "_resolve_gui mode=off => disabled regardless" {
+  local _enabled
+  DISPLAY=":0" _resolve_gui "off" _enabled
+  assert_equal "${_enabled}" "false"
+}
+
+# ════════════════════════════════════════════════════════════════════
+# detect_image_name — new config/setup/ location
+# ════════════════════════════════════════════════════════════════════
+
+@test "detect_image_name reads template/config/setup/image_name.conf" {
+  local _name=""
+  unset IMAGE_NAME_CONF
+  local _path="${TEMP_DIR}/myrepo"
+  mkdir -p "${_path}"
+  BASE_PATH="${_path}" detect_image_name _name "${_path}"
+  # With @default:unknown rule, we expect "unknown" since no docker_/_ws pattern matches
+  assert_equal "${_name}" "unknown"
+}
+
+@test "detect_image_name honors per-repo config/setup/image_name.conf" {
+  local _path="${TEMP_DIR}/some_repo"
+  mkdir -p "${_path}/config/setup"
+  cat > "${_path}/config/setup/image_name.conf" <<'EOF'
+@default:myrepo
+EOF
+  unset IMAGE_NAME_CONF
+  local _name=""
+  BASE_PATH="${_path}" detect_image_name _name "${_path}"
+  assert_equal "${_name}" "myrepo"
 }

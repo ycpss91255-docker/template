@@ -114,7 +114,7 @@ flowchart LR
 | `script/docker/setup.sh` | システムパラメータの自動検出と `.env` 生成 |
 | `script/docker/_lib.sh` | 共有 helper（`_load_env`、`_compose`、`_compose_project` など） |
 | `script/docker/i18n.sh` | 共有言語検出（`_detect_lang`、`_LANG`） |
-| `config/` | シェル設定ファイル（bashrc、tmux、terminator、pip）+ IMAGE_NAME ルール |
+| `config/` | シェル設定ファイル（bashrc、tmux、terminator、pip）+ `config/setup/`（repo ごとの runtime conf：image_name、gpu、gui、network、volumes） |
 | `test/smoke/` | 共有 smoke テスト + runtime assertion helpers（下記参照） |
 | `test/unit/` | Template 自身のテスト（bats + kcov） |
 | `test/integration/` | Level-1 `init.sh` 統合テスト |
@@ -180,6 +180,42 @@ assertion helpers のセットを提供します。ダウンストリーム repo
 - `script/entrypoint.sh`
 - `doc/` と `README.md`
 - Repo 固有の smoke test
+
+## repo ごとのランタイム設定
+
+下流 repo は `config/setup/` 配下の conf ファイルで自身の
+`compose.yaml` を駆動します — GPU 予約、GUI env/volumes、network mode、
+追加の volumes 等。`setup.sh` が `./build.sh` / `./run.sh` のたびに
+conf 読み込み + システム検出を行い `.env` と `compose.yaml` を再生成
+するので、`compose.yaml` を手動で編集する必要はありません。
+
+### Conf ファイル
+
+テンプレート既定値は `template/config/setup/` に置き、repo ごとの
+上書きは構造をミラーした `<repo>/config/setup/<name>.conf` に配置します。
+各 conf の探索順：`<NAME>_CONF` 環境変数 →
+`<repo>/config/setup/<name>.conf` → テンプレート既定値。
+
+| Conf | 制御内容 |
+|------|---------|
+| `image_name.conf` | `IMAGE_NAME` 検出ルール（rule-driven：`prefix:`、`suffix:`、`@env_example`、`@basename`、`@default:`） |
+| `gpu.conf` | GPU `deploy` ブロックの出力要否。mode：`auto`（nvidia-container-toolkit 検出）/ `force` / `off`。`count`、`capabilities` も指定可。 |
+| `gui.conf` | DISPLAY / WAYLAND / X11 volume ブロックの出力要否。mode：`auto`（`$DISPLAY`/`$WAYLAND_DISPLAY` 検出）/ `force` / `off`。 |
+| `network.conf` | `network_mode`、`ipc`、`privileged` の値（compose.yaml の既定値としてベイク）。 |
+| `volumes.conf` | workspace + `/dev` 以外の追加 host mount。1 行 1 mount。 |
+
+### 生成物
+
+`compose.yaml` と `.env` はいずれも `.gitignore` 対象 — 真の source of
+truth は conf ファイル + 検出結果です。いつでも `compose.yaml` を開けば
+現在のランタイム設定全体を確認できます。
+
+### repo ごとの上書きを生成
+
+```bash
+./template/init.sh --gen-conf gpu        # template gpu.conf を <repo>/config/setup/gpu.conf にコピー
+./template/init.sh --gen-image-conf      # --gen-conf image_name のエイリアス
+```
 
 ## クイックスタート
 

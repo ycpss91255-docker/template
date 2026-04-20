@@ -165,13 +165,13 @@ teardown() {
 }
 
 # ════════════════════════════════════════════════════════════════════
-# init.sh --gen-image-conf
+# init.sh --gen-image-conf / --gen-conf
 # ════════════════════════════════════════════════════════════════════
 
-@test "init.sh --gen-image-conf copies image_name.conf to repo root" {
+@test "init.sh --gen-image-conf copies image_name.conf to config/setup/" {
   bash template/init.sh        # generate skeleton first
   bash template/init.sh --gen-image-conf
-  assert [ -f "${REPO_DIR}/image_name.conf" ]
+  assert [ -f "${REPO_DIR}/config/setup/image_name.conf" ]
 }
 
 @test "init.sh --gen-image-conf refuses to overwrite existing image_name.conf" {
@@ -180,4 +180,56 @@ teardown() {
   run bash template/init.sh --gen-image-conf
   assert_failure
   assert_output --partial "already exists"
+}
+
+@test "init.sh --gen-conf gpu copies gpu.conf to config/setup/" {
+  bash template/init.sh
+  bash template/init.sh --gen-conf gpu
+  assert [ -f "${REPO_DIR}/config/setup/gpu.conf" ]
+}
+
+@test "init.sh --gen-conf gui copies gui.conf to config/setup/" {
+  bash template/init.sh
+  bash template/init.sh --gen-conf gui
+  assert [ -f "${REPO_DIR}/config/setup/gui.conf" ]
+}
+
+@test "init.sh --gen-conf network copies network.conf to config/setup/" {
+  bash template/init.sh
+  bash template/init.sh --gen-conf network
+  assert [ -f "${REPO_DIR}/config/setup/network.conf" ]
+}
+
+@test "init.sh --gen-conf volumes copies volumes.conf to config/setup/" {
+  bash template/init.sh
+  bash template/init.sh --gen-conf volumes
+  assert [ -f "${REPO_DIR}/config/setup/volumes.conf" ]
+}
+
+@test "init.sh --gen-conf refuses unknown conf name" {
+  bash template/init.sh
+  run bash template/init.sh --gen-conf nonexistent
+  assert_failure
+  assert_output --partial "not found"
+}
+
+# ════════════════════════════════════════════════════════════════════
+# init.sh new-repo: compose.yaml is derived artifact
+# ════════════════════════════════════════════════════════════════════
+
+@test "new repo: .gitignore contains compose.yaml (derived artifact)" {
+  bash template/init.sh
+  run grep -x 'compose.yaml' "${REPO_DIR}/.gitignore"
+  assert_success
+}
+
+@test "new repo: compose.yaml has AUTO-GENERATED header" {
+  bash template/init.sh
+  run head -n 1 "${REPO_DIR}/compose.yaml"
+  assert_output --partial "AUTO-GENERATED"
+}
+
+@test "new repo: config/setup/ directory not created by default" {
+  bash template/init.sh
+  [[ ! -d "${REPO_DIR}/config/setup" ]] || fail "per-repo config/setup/ should not exist by default"
 }

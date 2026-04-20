@@ -114,7 +114,7 @@ flowchart LR
 | `script/docker/setup.sh` | Auto-detect system parameters and generate `.env` |
 | `script/docker/_lib.sh` | Shared helpers (`_load_env`, `_compose`, `_compose_project`, ...) |
 | `script/docker/i18n.sh` | Shared language detection (`_detect_lang`, `_LANG`) |
-| `config/` | Shell configs (bashrc, tmux, terminator, pip) + IMAGE_NAME rules |
+| `config/` | Shell configs (bashrc, tmux, terminator, pip) + `config/setup/` (per-repo runtime confs: image_name, gpu, gui, network, volumes) |
 | `test/smoke/` | Shared smoke tests + runtime assertion helpers (see below) |
 | `test/unit/` | Template self-tests (bats + kcov) |
 | `test/integration/` | Level-1 `init.sh` end-to-end tests |
@@ -178,6 +178,42 @@ diagnostics pointing at the missing artifact.
 - `script/entrypoint.sh`
 - `doc/` and `README.md`
 - Repo-specific smoke tests
+
+## Per-repo runtime configuration
+
+Downstream repos drive their `compose.yaml` — GPU reservation, GUI
+env/volumes, network mode, extra volumes — through conf files in
+`config/setup/`. `setup.sh` reads these confs plus system detection and
+regenerates both `.env` and `compose.yaml` on every `./build.sh` /
+`./run.sh`, so you never edit `compose.yaml` by hand.
+
+### Conf files
+
+Template defaults live at `template/config/setup/`; per-repo overrides
+mirror the path at `<repo>/config/setup/<name>.conf`. Lookup order per
+conf: `<NAME>_CONF` env var → `<repo>/config/setup/<name>.conf` →
+template default.
+
+| Conf | Controls |
+|------|----------|
+| `image_name.conf` | `IMAGE_NAME` detection rules (rule-driven: `prefix:`, `suffix:`, `@env_example`, `@basename`, `@default:`) |
+| `gpu.conf` | GPU `deploy` block inclusion. Modes: `auto` (detect nvidia-container-toolkit) / `force` / `off`. Plus `count` and `capabilities`. |
+| `gui.conf` | DISPLAY / WAYLAND / X11 volume block. Modes: `auto` (detect `$DISPLAY`/`$WAYLAND_DISPLAY`) / `force` / `off`. |
+| `network.conf` | `network_mode`, `ipc`, `privileged` values (baked into compose.yaml as defaults). |
+| `volumes.conf` | Extra host volume mounts beyond workspace + `/dev`. One mount per line. |
+
+### Generated artifacts
+
+Both `compose.yaml` and `.env` are gitignored — source of truth is the
+conf files + detection results. Open `compose.yaml` anytime to see the
+repo's current effective configuration.
+
+### Generating a per-repo override
+
+```bash
+./template/init.sh --gen-conf gpu        # copies template gpu.conf to <repo>/config/setup/gpu.conf
+./template/init.sh --gen-image-conf      # alias for --gen-conf image_name
+```
 
 ## Quick Start
 
