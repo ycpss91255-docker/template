@@ -122,6 +122,28 @@ teardown() {
   assert_output "template/script/docker/Makefile"
 }
 
+@test "new repo: config symlink → template/config (navigation convenience)" {
+  bash template/init.sh
+  assert [ -L "${REPO_DIR}/config" ]
+  run readlink "${REPO_DIR}/config"
+  assert_output "template/config"
+  # Dereferenced path must resolve to a real directory with the
+  # expected subdirs (bashrc / tmux / terminator / pip).
+  assert [ -d "${REPO_DIR}/config/" ]
+  assert [ -d "${REPO_DIR}/config/shell" ]
+}
+
+@test "new repo: init.sh preserves pre-existing config/ directory (no clobber)" {
+  # Simulate a repo with a real config/ directory (user-provided
+  # overrides). init.sh must not replace it with a symlink.
+  mkdir -p "${REPO_DIR}/config/custom"
+  echo "user-override" > "${REPO_DIR}/config/custom/marker"
+  bash template/init.sh
+  assert [ ! -L "${REPO_DIR}/config" ]
+  assert [ -d "${REPO_DIR}/config" ]
+  assert [ -f "${REPO_DIR}/config/custom/marker" ]
+}
+
 @test "new repo: template/VERSION exists (no legacy .template_version)" {
   bash template/init.sh
   assert [ -f "${REPO_DIR}/template/VERSION" ]

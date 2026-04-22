@@ -49,6 +49,19 @@ _create_symlinks() {
   else
     _log "  Keeping custom .hadolint.yaml (differs from template)"
   fi
+
+  # Navigation symlink: <repo>/config → template/config. Lets users
+  # `cd config`, `ls config/shell/...` without having to know about the
+  # subtree layout. Does NOT affect Dockerfile COPY — the Dockerfile
+  # keeps referencing the real `template/config` path because
+  # `docker build` does not follow symlinks in its context.
+  # If a repo has a real `config/` directory (user placed overrides
+  # there), skip — don't clobber user data.
+  if [[ -d config && ! -L config ]]; then
+    _log "  Keeping custom config/ directory (skipping template symlink)"
+  else
+    _symlink "${TEMPLATE_REL}/config" "config"
+  fi
 }
 
 _detect_template_version() {
