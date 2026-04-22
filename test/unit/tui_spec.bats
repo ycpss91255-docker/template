@@ -13,10 +13,12 @@ setup() {
   # shellcheck disable=SC1091
   source /source/script/docker/_tui_conf.sh
 
+  create_mock_dir
   TEMP_DIR="$(mktemp -d)"
 }
 
 teardown() {
+  cleanup_mock_dir
   rm -rf "${TEMP_DIR}"
 }
 
@@ -586,4 +588,143 @@ _b5_setup_tui() {
   # mount_2 must still appear.
   assert_output --partial "mount_2"
   assert_output --partial "/x:/y"
+}
+
+# ════════════════════════════════════════════════════════════════════
+# _detect_mig / _list_gpu_instances
+#
+# MIG (Multi-Instance GPU) mode on A100/H100 splits one physical GPU
+# into isolated slices. Docker's `count=N` reservation addresses full
+# GPUs, not MIG slices; to pin a specific slice users must set
+# NVIDIA_VISIBLE_DEVICES to the MIG UUID via [environment]. The TUI
+# detects MIG and advises the user accordingly.
+# ════════════════════════════════════════════════════════════════════
+
+@test "_detect_mig returns 0 when nvidia-smi reports Enabled" {
+  mock_cmd "nvidia-smi" '
+if [[ "$1 $2" == "--query-gpu=mig.mode.current --format=csv,noheader" ]]; then
+  echo "Enabled"
+fi'
+  _detect_mig
+}
+
+@test "_detect_mig returns 1 when nvidia-smi reports Disabled" {
+  mock_cmd "nvidia-smi" '
+if [[ "$1 $2" == "--query-gpu=mig.mode.current --format=csv,noheader" ]]; then
+  echo "Disabled"
+fi'
+  run _detect_mig
+  [ "${status}" -ne 0 ]
+}
+
+@test "_detect_mig returns 1 when nvidia-smi is missing" {
+  # Point PATH at MOCK_DIR only (no nvidia-smi stub) so `command -v` fails.
+  local _saved_path="${PATH}"
+  PATH="${MOCK_DIR}"
+  run _detect_mig
+  PATH="${_saved_path}"
+  [ "${status}" -ne 0 ]
+}
+
+@test "_detect_mig returns 1 when nvidia-smi output has no mode line" {
+  # Driver stack broken / unsupported query.
+  mock_cmd "nvidia-smi" 'exit 9'
+  run _detect_mig
+  [ "${status}" -ne 0 ]
+}
+
+@test "_list_gpu_instances returns nvidia-smi -L output" {
+  mock_cmd "nvidia-smi" '
+if [[ "$1" == "-L" ]]; then
+  echo "GPU 0: NVIDIA A100-SXM4-40GB (UUID: GPU-abcd)"
+  echo "  MIG 1g.5gb     Device  0: (UUID: MIG-1111)"
+  echo "  MIG 1g.5gb     Device  1: (UUID: MIG-2222)"
+fi'
+  run _list_gpu_instances
+  assert_success
+  [[ "${output}" == *"GPU 0: NVIDIA A100"* ]]
+  [[ "${output}" == *"MIG-1111"* ]]
+  [[ "${output}" == *"MIG-2222"* ]]
+}
+
+# ════════════════════════════════════════════════════════════════════
+# _edit_section_deploy — MIG advisory integration
+#
+# When the host has MIG mode enabled, _edit_section_deploy must show a
+# msgbox that explains `count=N` cannot pin a MIG slice and surfaces the
+# available slice UUIDs before proceeding with the normal count /
+# capabilities prompts.
+# ════════════════════════════════════════════════════════════════════
+
+@test "_edit_section_deploy shows MIG msgbox when host has MIG enabled" {
+  # Source tui.sh to get _edit_section_deploy + i18n tables. The
+  # BASH_SOURCE guard at the bottom of tui.sh prevents main() from
+  # running on source.
+  # shellcheck disable=SC1091
+  source /source/script/docker/tui.sh
+
+  # Stub the interactive backend wrappers. _edit_section_deploy calls
+  # _tui_select (mode), _tui_inputbox (count), _tui_checklist (caps),
+  # and _tui_msgbox for the MIG warning. We capture msgbox calls to
+  # TUI_MSGBOX_LOG so the test can assert the title + body.
+  TUI_MSGBOX_LOG="${TEMP_DIR}/msgbox.log"
+  : > "${TUI_MSGBOX_LOG}"
+  export TUI_MSGBOX_LOG
+
+  _tui_select()    { printf '%s' "auto"; }
+  _tui_inputbox()  { printf '%s' "all"; }
+  _tui_checklist() { printf '%s\n' "gpu"; }
+  _tui_msgbox()    {
+    printf 'TITLE=%s\n' "${1}" >> "${TUI_MSGBOX_LOG}"
+    printf 'BODY<<<%s>>>\n' "${2}" >> "${TUI_MSGBOX_LOG}"
+  }
+
+  # nvidia-smi stub drives both _detect_mig (Enabled) and
+  # _list_gpu_instances (-L listing).
+  mock_cmd "nvidia-smi" '
+case "$1 $2" in
+  "--query-gpu=mig.mode.current --format=csv,noheader")
+    echo "Enabled" ;;
+esac
+if [[ "$1" == "-L" ]]; then
+  echo "GPU 0: NVIDIA A100-SXM4-40GB (UUID: GPU-abcd)"
+  echo "  MIG 1g.5gb     Device  0: (UUID: MIG-1111)"
+fi'
+
+  run _edit_section_deploy
+  assert_success
+
+  # First msgbox call should be the MIG advisory (title + UUID body).
+  run cat "${TUI_MSGBOX_LOG}"
+  [[ "${output}" == *"NVIDIA MIG"* ]]
+  [[ "${output}" == *"MIG-1111"* ]]
+  [[ "${output}" == *"NVIDIA_VISIBLE_DEVICES"* ]]
+}
+
+@test "_edit_section_deploy skips MIG msgbox when MIG disabled" {
+  # shellcheck disable=SC1091
+  source /source/script/docker/tui.sh
+
+  TUI_MSGBOX_LOG="${TEMP_DIR}/msgbox.log"
+  : > "${TUI_MSGBOX_LOG}"
+  export TUI_MSGBOX_LOG
+
+  _tui_select()    { printf '%s' "auto"; }
+  _tui_inputbox()  { printf '%s' "all"; }
+  _tui_checklist() { printf '%s\n' "gpu"; }
+  _tui_msgbox()    {
+    printf 'TITLE=%s\n' "${1}" >> "${TUI_MSGBOX_LOG}"
+  }
+
+  mock_cmd "nvidia-smi" '
+case "$1 $2" in
+  "--query-gpu=mig.mode.current --format=csv,noheader")
+    echo "Disabled" ;;
+esac'
+
+  run _edit_section_deploy
+  assert_success
+
+  run cat "${TUI_MSGBOX_LOG}"
+  [[ "${output}" != *"NVIDIA MIG"* ]]
 }

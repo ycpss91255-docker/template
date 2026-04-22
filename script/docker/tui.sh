@@ -112,6 +112,8 @@ declare -gA _TUI_MSG_EN=(
   [deploy.caps.compute]="compute (CUDA compute)"
   [deploy.caps.utility]="utility (nvidia-smi, monitoring)"
   [deploy.caps.graphics]="graphics (OpenGL, Vulkan)"
+  [deploy.mig.title]="Deploy — NVIDIA MIG detected"
+  [deploy.mig.warning]=$'NVIDIA MIG (Multi-Instance GPU) mode is enabled on this host.\n\nDocker\'s deploy `count=N` reservation addresses whole GPUs; it cannot pin a specific MIG slice. To target one slice, leave count as-is and add to the [environment] section:\n  NVIDIA_VISIBLE_DEVICES=<MIG-UUID>\n\nAvailable GPU / MIG instances:\n%s'
   [gui.title]="GUI"
   [gui.mode.prompt]="GUI mode"
   [gui.mode.auto]="auto (detect \$DISPLAY / \$WAYLAND_DISPLAY)"
@@ -241,6 +243,8 @@ declare -gA _TUI_MSG_ZH=(
   [deploy.caps.compute]="compute（CUDA 運算）"
   [deploy.caps.utility]="utility（nvidia-smi、監控）"
   [deploy.caps.graphics]="graphics（OpenGL、Vulkan）"
+  [deploy.mig.title]="Deploy — 偵測到 NVIDIA MIG"
+  [deploy.mig.warning]=$'此主機已啟用 NVIDIA MIG（Multi-Instance GPU）模式。\n\nDocker 的 deploy `count=N` 只能預留整張 GPU，無法指定特定 MIG slice。若要使用單一 slice，請維持 count 不變，並在 [environment] 區塊加入：\n  NVIDIA_VISIBLE_DEVICES=<MIG-UUID>\n\n主機上的 GPU / MIG 實例：\n%s'
   [gui.title]="GUI"
   [gui.mode.prompt]="GUI 模式"
   [gui.mode.auto]="auto（偵測 \$DISPLAY／\$WAYLAND_DISPLAY）"
@@ -370,6 +374,8 @@ declare -gA _TUI_MSG_ZH_CN=(
   [deploy.caps.compute]="compute（CUDA 计算）"
   [deploy.caps.utility]="utility（nvidia-smi、监控）"
   [deploy.caps.graphics]="graphics（OpenGL、Vulkan）"
+  [deploy.mig.title]="Deploy — 检测到 NVIDIA MIG"
+  [deploy.mig.warning]=$'此主机已启用 NVIDIA MIG（Multi-Instance GPU）模式。\n\nDocker 的 deploy `count=N` 只能预留整张 GPU，无法指定特定 MIG slice。若要使用单一 slice，请保持 count 不变，并在 [environment] 区块加入：\n  NVIDIA_VISIBLE_DEVICES=<MIG-UUID>\n\n主机上的 GPU / MIG 实例：\n%s'
   [gui.title]="GUI"
   [gui.mode.prompt]="GUI 模式"
   [gui.mode.auto]="auto（检测 \$DISPLAY／\$WAYLAND_DISPLAY）"
@@ -494,6 +500,8 @@ declare -gA _TUI_MSG_JA=(
   [deploy.caps.compute]="compute（CUDA 計算）"
   [deploy.caps.utility]="utility（nvidia-smi、監視）"
   [deploy.caps.graphics]="graphics（OpenGL、Vulkan）"
+  [deploy.mig.title]="Deploy — NVIDIA MIG を検出"
+  [deploy.mig.warning]=$'このホストでは NVIDIA MIG（Multi-Instance GPU）モードが有効です。\n\nDocker の deploy `count=N` は GPU 単位の予約であり、特定の MIG スライスを指定できません。特定スライスを使う場合は count を変更せず、[environment] セクションに次を追加してください：\n  NVIDIA_VISIBLE_DEVICES=<MIG-UUID>\n\nホストで利用可能な GPU / MIG インスタンス：\n%s'
   [gui.title]="GUI"
   [gui.mode.prompt]="GUI モード"
   [gui.mode.auto]="auto（\$DISPLAY／\$WAYLAND_DISPLAY を検出）"
@@ -561,6 +569,13 @@ _tui_init_lang() {
     *)     _TUI_LANG_UPPER="EN" ;;
   esac
 }
+
+# Source-time default so _tui_msg works even when tui.sh is sourced
+# without going through main() (e.g. bats tests that source + invoke a
+# specific section editor directly). main() re-runs _tui_init_lang after
+# --lang parsing.
+_TUI_LANG_UPPER="${_TUI_LANG_UPPER:-EN}"
+_tui_init_lang 2>/dev/null || true
 
 # ── Usage ─────────────────────────────────────────────────────────────────
 
@@ -963,6 +978,21 @@ _edit_section_deploy() {
   _override_set "deploy.gpu_mode" "${_v}"
   # GPU disabled → count/capabilities are irrelevant; skip the rest.
   [[ "${_v}" == "off" ]] && return 0
+
+  # MIG (Multi-Instance GPU) advisory. When the host has MIG enabled,
+  # Docker's `count=N` reservation addresses whole GPUs, not MIG slices.
+  # Warn the user and show available slice UUIDs so they can pin a
+  # specific slice via NVIDIA_VISIBLE_DEVICES=<MIG-UUID> in the
+  # [environment] section. Proceeds with the normal count/capabilities
+  # flow either way.
+  if _detect_mig; then
+    local _mig_fmt _mig_msg _mig_list
+    _mig_list="$(_list_gpu_instances)"
+    _mig_fmt="$(_tui_msg deploy.mig.warning)"
+    # shellcheck disable=SC2059  # msg source is our own i18n table
+    _mig_msg="$(printf "${_mig_fmt}" "${_mig_list}")"
+    _tui_msgbox "$(_tui_msg deploy.mig.title)" "${_mig_msg}"
+  fi
 
   # Probe host for installed NVIDIA GPU count; surface in prompt so the
   # user has a reference value when choosing "all" vs a specific integer.
