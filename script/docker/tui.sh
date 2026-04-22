@@ -809,23 +809,46 @@ _edit_image_rule() {
     __remove    "$(_tui_msg image.type.remove)"      "off")" \
     || return 0
 
+  local _final=""
   case "${_type}" in
     __remove)
       _mark_removed "image.rule_${_n}"
+      return 0
       ;;
     prefix|suffix|default)
       _value="$(_tui_inputbox "rule" "$(_tui_msg image.value.prompt)" "${_cur_value}")" \
         || return 0
       if [[ "${_type}" == default ]]; then
-        _override_set "image.rule_${_n}" "@default:${_value}"
+        _final="@default:${_value}"
       else
-        _override_set "image.rule_${_n}" "${_type}:${_value}"
+        _final="${_type}:${_value}"
       fi
       ;;
     basename)
-      _override_set "image.rule_${_n}" "@basename"
+      _final="@basename"
       ;;
   esac
+
+  # Dedupe: if the new rule string already exists at another slot,
+  # drop the old slot so we end up with a single entry at _n
+  # (adding a rule that already exists is treated as "move to this
+  # position" — the user's intent when re-adding is usually to bump
+  # the rule's priority, not to leave two identical copies).
+  local _m _other
+  for _m in "${!_TUI_CURRENT[@]}"; do
+    [[ "${_m}" == image.rule_* ]] || continue
+    [[ "${_m}" == "image.rule_${_n}" ]] && continue
+    _other="$(_override_get "${_m}" "")"
+    [[ "${_other}" == "${_final}" ]] && _mark_removed "${_m}"
+  done
+  local _i
+  for (( _i=0; _i<${#_TUI_OVR_KEYS[@]}; _i++ )); do
+    [[ "${_TUI_OVR_KEYS[_i]}" == image.rule_* ]] || continue
+    [[ "${_TUI_OVR_KEYS[_i]}" == "image.rule_${_n}" ]] && continue
+    [[ "${_TUI_OVR_VALUES[_i]}" == "${_final}" ]] && _mark_removed "${_TUI_OVR_KEYS[_i]}"
+  done
+
+  _override_set "image.rule_${_n}" "${_final}"
 }
 
 _edit_section_build() {

@@ -736,3 +736,83 @@ esac'
   run cat "${TUI_MSGBOX_LOG}"
   [[ "${output}" != *"NVIDIA MIG"* ]]
 }
+
+# ════════════════════════════════════════════════════════════════════
+# _edit_image_rule — dedupe-on-write (B6)
+#
+# Adding a rule that matches an existing rule_M's value should move the
+# rule to the new slot rather than leaving two identical copies. Applies
+# to both add and in-place edit — the write function dedupes
+# unconditionally.
+# ════════════════════════════════════════════════════════════════════
+
+_b6_setup_tui() {
+  export _LANG="en"
+  # shellcheck disable=SC1091
+  source /source/script/docker/tui.sh
+  _tui_init_lang
+  _TUI_OVR_KEYS=()
+  _TUI_OVR_VALUES=()
+  _TUI_REMOVED=()
+  _TUI_CURRENT=()
+}
+
+@test "_edit_image_rule add of duplicate @basename drops old slot" {
+  _b6_setup_tui
+  _TUI_CURRENT[image.rule_1]="prefix:docker_"
+  _TUI_CURRENT[image.rule_2]="@basename"
+
+  # Stub type-select to return "basename" and inputbox (unused for basename)
+  _tui_select()    { printf 'basename'; }
+  _tui_inputbox()  { printf ''; }
+
+  # Add rule_3 = @basename (dup of rule_2)
+  _edit_image_rule 3
+
+  # rule_2 should be marked removed
+  local _found=0
+  local _r
+  for _r in "${_TUI_REMOVED[@]}"; do
+    [[ "${_r}" == "image.rule_2" ]] && _found=1
+  done
+  [ "${_found}" -eq 1 ]
+
+  # rule_3 override has @basename
+  local _v
+  _v="$(_override_get "image.rule_3" "")"
+  [ "${_v}" == "@basename" ]
+}
+
+@test "_edit_image_rule add of NEW rule string leaves existing slots untouched" {
+  _b6_setup_tui
+  _TUI_CURRENT[image.rule_1]="prefix:docker_"
+  _TUI_CURRENT[image.rule_2]="@basename"
+
+  # Stub: add @default:unknown (no dup)
+  _tui_select()    { printf 'default'; }
+  _tui_inputbox()  { printf 'unknown'; }
+
+  _edit_image_rule 3
+
+  # No rules removed
+  [ "${#_TUI_REMOVED[@]}" -eq 0 ]
+  local _v
+  _v="$(_override_get "image.rule_3" "")"
+  [ "${_v}" == "@default:unknown" ]
+}
+
+@test "_edit_image_rule different prefix values are NOT treated as duplicates" {
+  _b6_setup_tui
+  _TUI_CURRENT[image.rule_1]="prefix:docker_"
+
+  _tui_select()    { printf 'prefix'; }
+  _tui_inputbox()  { printf 'foo_'; }
+
+  _edit_image_rule 2
+
+  # rule_1 untouched, rule_2 = prefix:foo_
+  [ "${#_TUI_REMOVED[@]}" -eq 0 ]
+  local _v
+  _v="$(_override_get "image.rule_2" "")"
+  [ "${_v}" == "prefix:foo_" ]
+}
