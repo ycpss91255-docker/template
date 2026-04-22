@@ -109,16 +109,30 @@ teardown() {
   assert [ -f "${SANDBOX}/.env" ]
 }
 
-@test "run.sh skips setup.sh when .env exists (drift-check path)" {
+@test "run.sh skips setup.sh when .env AND setup.conf exist (drift-check path)" {
   {
     echo "USER_NAME=tester"
     echo "IMAGE_NAME=mockimg"
     echo "DOCKER_HUB_USER=mockuser"
   } > "${SANDBOX}/.env"
+  : > "${SANDBOX}/setup.conf"
   run bash "${SANDBOX}/run.sh" --dry-run
   assert_success
   refute_output --partial "First run"
   assert [ ! -f "${MOCK_SETUP_LOG}" ]
+}
+
+@test "run.sh bootstraps setup.sh when setup.conf is missing (even if .env exists)" {
+  {
+    echo "USER_NAME=tester"
+    echo "IMAGE_NAME=mockimg"
+    echo "DOCKER_HUB_USER=mockuser"
+  } > "${SANDBOX}/.env"
+  rm -f "${SANDBOX}/setup.conf"
+  run bash "${SANDBOX}/run.sh" --dry-run
+  assert_success
+  assert_output --partial "First run"
+  assert [ -f "${MOCK_SETUP_LOG}" ]
 }
 
 @test "run.sh --detach routes to 'compose up -d'" {

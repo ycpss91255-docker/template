@@ -39,6 +39,7 @@ _create_symlinks() {
   _symlink "${TEMPLATE_REL}/script/docker/run.sh" "run.sh"
   _symlink "${TEMPLATE_REL}/script/docker/exec.sh" "exec.sh"
   _symlink "${TEMPLATE_REL}/script/docker/stop.sh" "stop.sh"
+  _symlink "${TEMPLATE_REL}/script/docker/tui.sh" "tui.sh"
   _symlink "${TEMPLATE_REL}/script/docker/Makefile" "Makefile"
 
   if [[ ! -f .hadolint.yaml ]] \
@@ -127,10 +128,6 @@ setup() {
 }
 BATS
   _log "  Created test/smoke/${name}_env.bats"
-
-  # .env.example
-  echo "IMAGE_NAME=${name}" > .env.example
-  _log "  Created .env.example"
 
   # .github/workflows/main.yaml
   mkdir -p .github/workflows
@@ -281,8 +278,8 @@ Version is tracked in template/VERSION (auto-synced by subtree pull).
 
 Options:
   --gen-conf         Copy template/setup.conf to <repo>/setup.conf so the
-                     user can override any section (gpu / gui / network /
-                     volumes / image_name). Refuses to overwrite an
+                     user can override any section (image / build / deploy /
+                     gui / network / volumes). Refuses to overwrite an
                      existing per-repo setup.conf.
   --gen-image-conf   Alias for --gen-conf (back-compat).
 

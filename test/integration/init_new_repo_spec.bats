@@ -53,11 +53,9 @@ teardown() {
   assert_success
 }
 
-@test "new repo: .env.example contains IMAGE_NAME=<reponame>" {
+@test "new repo: .env.example is NOT generated (image name via setup.conf rules)" {
   bash template/init.sh
-  assert [ -f "${REPO_DIR}/.env.example" ]
-  run grep "IMAGE_NAME=${REPO_NAME}" "${REPO_DIR}/.env.example"
-  assert_success
+  [[ ! -f "${REPO_DIR}/.env.example" ]]
 }
 
 @test "new repo: script/entrypoint.sh exists and is executable" {
@@ -169,23 +167,30 @@ teardown() {
 # ════════════════════════════════════════════════════════════════════
 
 @test "init.sh --gen-conf copies setup.conf to repo root" {
-  bash template/init.sh        # generate skeleton first
+  # init.sh auto-creates setup.conf via workspace writeback; remove it first
+  # to exercise the --gen-conf copy path directly.
+  bash template/init.sh
+  rm -f "${REPO_DIR}/setup.conf"
   bash template/init.sh --gen-conf
   assert [ -f "${REPO_DIR}/setup.conf" ]
   # Sanity: copied file contains the full section schema
-  run grep -E '^\[(image_name|gpu|gui|network|volumes)\]' "${REPO_DIR}/setup.conf"
+  run grep -E '^\[(image|build|deploy|gui|network|volumes)\]' "${REPO_DIR}/setup.conf"
   assert_success
 }
 
 @test "init.sh --gen-image-conf is back-compat alias for --gen-conf" {
+  # init.sh already auto-creates setup.conf; remove it first so we can
+  # exercise the alias's copy-from-template code path.
   bash template/init.sh
+  rm -f "${REPO_DIR}/setup.conf"
   bash template/init.sh --gen-image-conf
   assert [ -f "${REPO_DIR}/setup.conf" ]
 }
 
 @test "init.sh --gen-conf refuses to overwrite existing setup.conf" {
+  # init.sh auto-creates <repo>/setup.conf via setup.sh workspace writeback,
+  # so --gen-conf on a freshly-initialized repo already hits the "exists" guard.
   bash template/init.sh
-  bash template/init.sh --gen-conf
   run bash template/init.sh --gen-conf
   assert_failure
   assert_output --partial "already exists"
@@ -214,8 +219,33 @@ teardown() {
   assert_output --partial "AUTO-GENERATED"
 }
 
-@test "new repo: per-repo setup.conf not created by default" {
+@test "new repo: compose.yaml ships devices: /dev:/dev by default" {
   bash template/init.sh
-  [[ ! -f "${REPO_DIR}/setup.conf" ]] || \
-    fail "per-repo setup.conf should not exist unless user opts in via --gen-conf"
+  assert [ -f "${REPO_DIR}/compose.yaml" ]
+  run grep -E '^    devices:$' "${REPO_DIR}/compose.yaml"
+  assert_success
+  run grep -F -- '- /dev:/dev' "${REPO_DIR}/compose.yaml"
+  assert_success
+}
+
+@test "new repo: setup.conf mount_1 is NOT empty after first init (workspace detected + written)" {
+  # Regression: fresh repo previously produced an empty [volumes] mount_1
+  # which made the TUI volumes menu appear blank on first open. First-init
+  # must write the detected workspace path into mount_1.
+  bash template/init.sh
+  run grep -E '^mount_1 = .+$' "${REPO_DIR}/setup.conf"
+  assert_success
+  # Must NOT be exactly `mount_1 =` (empty value)
+  run grep -x 'mount_1 =' "${REPO_DIR}/setup.conf"
+  assert_failure
+}
+
+@test "new repo: per-repo setup.conf auto-created on first init (workspace writeback)" {
+  # setup.sh on first run (no <repo>/setup.conf) copies template + fills
+  # [volumes] mount_1 with the detected workspace. Expected behaviour since
+  # setup.conf became the source of truth for WS_PATH.
+  bash template/init.sh
+  assert [ -f "${REPO_DIR}/setup.conf" ]
+  run grep '^mount_1' "${REPO_DIR}/setup.conf"
+  assert_success
 }

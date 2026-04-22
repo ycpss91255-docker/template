@@ -2,20 +2,23 @@
 # setup.sh - Auto-detect system parameters and generate .env + compose.yaml
 #
 # Reads <repo>/setup.conf (or template/setup.conf default) for the repo's
-# runtime configuration (image_name rules, gpu, gui, network, volumes),
-# runs system detection (UID/GID, hardware, docker hub user, GPU, GUI,
-# workspace path), then emits:
+# runtime configuration ([image] rules, [build] apt_mirror, [deploy] GPU,
+# [gui], [network], [volumes]), runs system detection (UID/GID, hardware,
+# docker hub user, GPU, GUI, workspace path), then emits:
 #   - <repo>/.env          (variable values + SETUP_* metadata for drift detection)
 #   - <repo>/compose.yaml  (full compose with baseline + conditional blocks)
 #
 # Both output files are derived artifacts (gitignored). Source of truth is
-# setup.conf + system detection.
+# setup.conf + system detection. WS_PATH is detected once and written back
+# to <repo>/setup.conf [volumes] mount_1; subsequent runs read mount_1.
 #
 # Usage: setup.sh [--base-path <path>] [--lang zh|zh-CN|ja]
 
 # ── i18n messages ──────────────────────────────────────────────
 # shellcheck disable=SC1091
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/i18n.sh"
+# shellcheck disable=SC1091
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/_tui_conf.sh"
 
 _msg() {
   local _key="${1}"
@@ -109,6 +112,32 @@ detect_gpu() {
   else
     _outvar=false
   fi
+}
+
+# ════════════════════════════════════════════════════════════════════
+# detect_gpu_count
+#
+# Queries `nvidia-smi -L` for the number of installed NVIDIA GPUs. Emits
+# "0" when nvidia-smi is missing or returns non-zero (host has no GPU,
+# or the driver stack is broken). TUI uses this to show "Detected N"
+# alongside the `[deploy] gpu_count` prompt.
+#
+# Usage: detect_gpu_count <outvar>
+# ════════════════════════════════════════════════════════════════════
+detect_gpu_count() {
+  local -n _outvar="${1:?"${FUNCNAME[0]}: missing outvar"}"
+  # Use `__dgc_`-prefixed locals to avoid nameref shadowing when callers
+  # name their outvar `_n` or `_line` — bash namerefs rebind to the nearest
+  # local of the same name, which silently drops writes to the caller.
+  local __dgc_n=0 __dgc_line
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    while IFS= read -r __dgc_line; do
+      if [[ "${__dgc_line}" == "GPU "* ]]; then
+        __dgc_n=$(( __dgc_n + 1 ))
+      fi
+    done < <(nvidia-smi -L 2>/dev/null || true)
+  fi
+  _outvar="${__dgc_n}"
 }
 
 # ════════════════════════════════════════════════════════════════════
@@ -253,8 +282,9 @@ _get_conf_list_sorted() {
     __gcls_k="${_gcls_keys[i]}"
     if [[ "${__gcls_k}" == "${_prefix}"* ]]; then
       __gcls_num="${__gcls_k#"${_prefix}"}"
-      # Only numeric suffixes participate
+      # Only numeric suffixes participate; empty values mean opt-out
       [[ "${__gcls_num}" =~ ^[0-9]+$ ]] || continue
+      [[ -z "${_gcls_values[i]}" ]] && continue
       __gcls_pairs+=("${__gcls_num}:${_gcls_values[i]}")
     fi
   done
@@ -270,7 +300,7 @@ _get_conf_list_sorted() {
 }
 
 # ════════════════════════════════════════════════════════════════════
-# Rule applicators for [image_name] rules (used by detect_image_name)
+# Rule applicators for [image] rules (used by detect_image_name)
 # ════════════════════════════════════════════════════════════════════
 
 _rule_prefix() {
@@ -328,7 +358,7 @@ _rule_basename() {
 # ════════════════════════════════════════════════════════════════════
 # detect_image_name
 #
-# Reads [image_name] rules from setup.conf (per-repo or template default).
+# Reads [image] rules from setup.conf (per-repo or template default).
 # rules is a comma-separated ordered list; first match wins.
 #
 # Usage: detect_image_name <outvar> <path>
@@ -339,16 +369,14 @@ detect_image_name() {
 
   local _base="${BASE_PATH:-${_path}}"
   local -a __din_keys=() __din_values=()
-  _load_setup_conf "${_base}" "image_name" __din_keys __din_values
+  _load_setup_conf "${_base}" "image" __din_keys __din_values
 
-  local _rules=""
-  _get_conf_value __din_keys __din_values "rules" "" _rules
+  # Collect rule_N entries in numeric order.
+  local -a _rule_arr=()
+  _get_conf_list_sorted __din_keys __din_values "rule_" _rule_arr
 
   local _found=""
-  if [[ -n "${_rules}" ]]; then
-    # Split on comma, trim each rule
-    local -a _rule_arr=()
-    IFS=',' read -ra _rule_arr <<< "${_rules}"
+  if (( ${#_rule_arr[@]} > 0 )); then
     local _rule _value
     for _rule in "${_rule_arr[@]}"; do
       _rule="${_rule#"${_rule%%[![:space:]]*}"}"
@@ -495,12 +523,17 @@ _compute_conf_hash() {
 # ════════════════════════════════════════════════════════════════════
 # generate_compose_yaml <out> <repo_name> <gui_enabled> <gpu_enabled>
 #                       <gpu_count> <gpu_caps> <extras_array_ref>
+#                       [<network_name>]
 #
 # Emits full compose.yaml with:
 #   - Baseline: workspace + X11 (iff GUI) + GUI env block (iff GUI)
 #   - Conditional: GPU deploy block (iff gpu_enabled=true)
 #   - Extra volumes from [volumes] section (comes in via extras_array_ref)
-# Network/IPC/privileged read from env var refs; .env provides values.
+#   - When network_name is given (only meaningful for mode=bridge), the
+#     service joins that external network and a top-level `networks:`
+#     block declares it external. Otherwise falls back to the env-driven
+#     `network_mode: ${NETWORK_MODE}`.
+# IPC/privileged always read from env var refs; .env provides values.
 # ════════════════════════════════════════════════════════════════════
 generate_compose_yaml() {
   local _out="${1:?}"
@@ -510,6 +543,17 @@ generate_compose_yaml() {
   local _gpu_count="${5:?}"
   local _gpu_caps="${6:?}"
   local -n _gcy_extras="${7:?}"
+  local _net_name="${8:-}"
+  local _devices_str="${9:-}"
+  local _env_str="${10:-}"
+  local _tmpfs_str="${11:-}"
+  local _ports_str="${12:-}"
+  local _shm_size="${13:-}"
+  local _net_mode="${14:-host}"
+  local _ipc_mode="${15:-host}"
+  local _cap_add_str="${16:-}"
+  local _cap_drop_str="${17:-}"
+  local _sec_opt_str="${18:-}"
 
   # Convert space-separated caps to YAML array form [a, b, c]
   local -a _caps_arr=()
@@ -539,8 +583,8 @@ services:
       dockerfile: Dockerfile
       target: devel
       args:
-        APT_MIRROR_UBUNTU: \${APT_MIRROR_UBUNTU:-tw.archive.ubuntu.com}
-        APT_MIRROR_DEBIAN: \${APT_MIRROR_DEBIAN:-mirror.twds.com.tw}
+        APT_MIRROR_UBUNTU: \${APT_MIRROR_UBUNTU:-archive.ubuntu.com}
+        APT_MIRROR_DEBIAN: \${APT_MIRROR_DEBIAN:-deb.debian.org}
         USER_NAME: \${USER_NAME}
         USER_GROUP: \${USER_GROUP}
         USER_UID: \${USER_UID}
@@ -548,35 +592,110 @@ services:
     image: \${DOCKER_HUB_USER:-local}/${_name}:devel
     container_name: ${_name}\${INSTANCE_SUFFIX:-}
     privileged: \${PRIVILEGED}
-    network_mode: \${NETWORK_MODE}
     ipc: \${IPC_MODE}
     stdin_open: true
     tty: true
 YAML
-    if [[ "${_gui}" == "true" ]]; then
-      cat <<'YAML'
-    environment:
+    # cap_add / cap_drop / security_opt from [security] section
+    if [[ -n "${_cap_add_str}" ]]; then
+      echo "    cap_add:"
+      local _cap
+      while IFS= read -r _cap; do
+        [[ -z "${_cap}" ]] && continue
+        echo "      - ${_cap}"
+      done <<< "${_cap_add_str}"
+    fi
+    if [[ -n "${_cap_drop_str}" ]]; then
+      echo "    cap_drop:"
+      local _cd
+      while IFS= read -r _cd; do
+        [[ -z "${_cd}" ]] && continue
+        echo "      - ${_cd}"
+      done <<< "${_cap_drop_str}"
+    fi
+    if [[ -n "${_sec_opt_str}" ]]; then
+      echo "    security_opt:"
+      local _so
+      while IFS= read -r _so; do
+        [[ -z "${_so}" ]] && continue
+        echo "      - ${_so}"
+      done <<< "${_sec_opt_str}"
+    fi
+    if [[ -n "${_net_name}" ]]; then
+      cat <<YAML
+    networks:
+      - ${_net_name}
+YAML
+    else
+      echo "    network_mode: \${NETWORK_MODE}"
+    fi
+    # environment: merges GUI baseline (DISPLAY etc.) + user env_N entries
+    if [[ "${_gui}" == "true" ]] || [[ -n "${_env_str}" ]]; then
+      echo "    environment:"
+      if [[ "${_gui}" == "true" ]]; then
+        cat <<'YAML'
       - DISPLAY=${DISPLAY:-}
       - WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}
       - XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/1000}
       - XAUTHORITY=${XAUTHORITY:-}
 YAML
+      fi
+      if [[ -n "${_env_str}" ]]; then
+        local _ev
+        while IFS= read -r _ev; do
+          [[ -z "${_ev}" ]] && continue
+          echo "      - ${_ev}"
+        done <<< "${_env_str}"
+      fi
     fi
-    echo "    volumes:"
-    if [[ "${_gui}" == "true" ]]; then
-      cat <<'YAML'
+    # ports: only emitted when network_mode=bridge (ignored under host)
+    if [[ -n "${_ports_str}" ]] && [[ "${_net_mode}" == "bridge" ]]; then
+      echo "    ports:"
+      local _p
+      while IFS= read -r _p; do
+        [[ -z "${_p}" ]] && continue
+        echo "      - \"${_p}\""
+      done <<< "${_ports_str}"
+    fi
+    # volumes block (GUI baseline conditional; workspace + extras from
+    # [volumes] mount_* — mount_1 is the workspace, auto-populated by
+    # setup.sh on first run and user-editable thereafter).
+    if [[ "${_gui}" == "true" ]] || (( ${#_gcy_extras[@]} > 0 )); then
+      echo "    volumes:"
+      if [[ "${_gui}" == "true" ]]; then
+        cat <<'YAML'
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
       - ${XDG_RUNTIME_DIR:-/run/user/1000}:${XDG_RUNTIME_DIR:-/run/user/1000}:rw
       - ${XAUTHORITY:-/dev/null}:${XAUTHORITY:-/dev/null}:ro
 YAML
+      fi
+      local _m
+      for _m in "${_gcy_extras[@]}"; do
+        echo "      - ${_m}"
+      done
     fi
-    cat <<'YAML'
-      - ${WS_PATH}:/home/${USER_NAME}/work
-YAML
-    local _m
-    for _m in "${_gcy_extras[@]}"; do
-      echo "      - ${_m}"
-    done
+    # devices: + device_cgroup_rules: from [devices] section
+    if [[ -n "${_devices_str}" ]]; then
+      echo "    devices:"
+      local _d
+      while IFS= read -r _d; do
+        [[ -z "${_d}" ]] && continue
+        echo "      - ${_d}"
+      done <<< "${_devices_str}"
+    fi
+    # tmpfs: RAM-backed mounts
+    if [[ -n "${_tmpfs_str}" ]]; then
+      echo "    tmpfs:"
+      local _tf
+      while IFS= read -r _tf; do
+        [[ -z "${_tf}" ]] && continue
+        echo "      - ${_tf}"
+      done <<< "${_tmpfs_str}"
+    fi
+    # shm_size: only emitted when ipc != host (otherwise Docker ignores it)
+    if [[ -n "${_shm_size}" ]] && [[ "${_ipc_mode}" != "host" ]]; then
+      echo "    shm_size: ${_shm_size}"
+    fi
     if [[ "${_gpu}" == "true" ]]; then
       cat <<YAML
     deploy:
@@ -596,8 +715,8 @@ YAML
       dockerfile: Dockerfile
       target: test
       args:
-        APT_MIRROR_UBUNTU: \${APT_MIRROR_UBUNTU:-tw.archive.ubuntu.com}
-        APT_MIRROR_DEBIAN: \${APT_MIRROR_DEBIAN:-mirror.twds.com.tw}
+        APT_MIRROR_UBUNTU: \${APT_MIRROR_UBUNTU:-archive.ubuntu.com}
+        APT_MIRROR_DEBIAN: \${APT_MIRROR_DEBIAN:-deb.debian.org}
         USER_NAME: \${USER_NAME}
         USER_GROUP: \${USER_GROUP}
         USER_UID: \${USER_UID}
@@ -606,6 +725,14 @@ YAML
     profiles:
       - test
 YAML
+    if [[ -n "${_net_name}" ]]; then
+      cat <<YAML
+
+networks:
+  ${_net_name}:
+    driver: bridge
+YAML
+    fi
   } > "${_out}"
 }
 
@@ -619,6 +746,7 @@ YAML
 #                  <network_mode> <ipc_mode> <privileged>
 #                  <gpu_count> <gpu_caps>
 #                  <gui_detected> <conf_hash>
+#                  [<network_name>]
 # ════════════════════════════════════════════════════════════════════
 write_env() {
   local _env_file="${1:?}"; shift
@@ -639,7 +767,8 @@ write_env() {
   local _gpu_count="${1}"; shift
   local _gpu_caps="${1}"; shift
   local _gui_detected="${1}"; shift
-  local _conf_hash="${1}"
+  local _conf_hash="${1}"; shift
+  local _network_name="${1:-}"
 
   local _comment=""
   _comment="$(_msg env_comment)"
@@ -666,6 +795,7 @@ APT_MIRROR_DEBIAN=${_apt_mirror_debian}
 
 # ── Runtime config (from setup.conf) ─────────
 NETWORK_MODE=${_network_mode}
+NETWORK_NAME=${_network_name}
 IPC_MODE=${_ipc_mode}
 PRIVILEGED=${_privileged}
 GPU_COUNT=${_gpu_count}
@@ -768,8 +898,6 @@ main() {
   local user_name="" user_group="" user_uid="" user_gid=""
   local hardware="" docker_hub_user="" gpu_detected="" gui_detected="" image_name=""
   local ws_path="${WS_PATH:-}"
-  local apt_mirror_ubuntu="${APT_MIRROR_UBUNTU:-tw.archive.ubuntu.com}"
-  local apt_mirror_debian="${APT_MIRROR_DEBIAN:-mirror.twds.com.tw}"
 
   detect_user_info       user_name user_group user_uid user_gid
   detect_hardware        hardware
@@ -778,32 +906,138 @@ main() {
   detect_gui             gui_detected
   BASE_PATH="${_base_path}" detect_image_name image_name "${_base_path}"
 
-  if [[ -z "${ws_path}" ]] || [[ ! -d "${ws_path}" ]]; then
-    detect_ws_path ws_path "${_base_path}"
-  fi
-  ws_path="$(cd "${ws_path}" && pwd -P)"
-
   # ── Load setup.conf sections ──
-  local -a _gpu_k=() _gpu_v=() _gui_k=() _gui_v=() _net_k=() _net_v=() _vol_k=() _vol_v=()
-  _load_setup_conf "${_base_path}" "gpu"     _gpu_k _gpu_v
-  _load_setup_conf "${_base_path}" "gui"     _gui_k _gui_v
-  _load_setup_conf "${_base_path}" "network" _net_k _net_v
-  _load_setup_conf "${_base_path}" "volumes" _vol_k _vol_v
+  local -a _dep_k=() _dep_v=() _gui_k=() _gui_v=() _net_k=() _net_v=() _vol_k=() _vol_v=()
+  local -a _build_k=() _build_v=()
+  local -a _dev_k=() _dev_v=()
+  local -a _res_k=() _res_v=()
+  local -a _env_k=() _env_v=()
+  local -a _tmp_k=() _tmp_v=()
+  local -a _sec_k=() _sec_v=()
+  _load_setup_conf "${_base_path}" "build"       _build_k _build_v
+  _load_setup_conf "${_base_path}" "deploy"      _dep_k _dep_v
+  _load_setup_conf "${_base_path}" "gui"         _gui_k _gui_v
+  _load_setup_conf "${_base_path}" "network"     _net_k _net_v
+  _load_setup_conf "${_base_path}" "volumes"     _vol_k _vol_v
+  _load_setup_conf "${_base_path}" "devices"     _dev_k _dev_v
+  _load_setup_conf "${_base_path}" "resources"   _res_k _res_v
+  _load_setup_conf "${_base_path}" "environment" _env_k _env_v
+  _load_setup_conf "${_base_path}" "tmpfs"       _tmp_k _tmp_v
+  _load_setup_conf "${_base_path}" "security"    _sec_k _sec_v
+
+  # APT mirrors: empty means "do not override" — let compose.yaml's
+  # build.args `${VAR:-<default>}` fallback pick the upstream archive.
+  local apt_mirror_ubuntu="" apt_mirror_debian=""
+  _get_conf_value _build_k _build_v "apt_mirror_ubuntu" "" apt_mirror_ubuntu
+  _get_conf_value _build_k _build_v "apt_mirror_debian" "" apt_mirror_debian
 
   local gpu_mode="" gpu_count="" gpu_caps=""
   local gui_mode=""
-  local net_mode="" ipc_mode="" privileged=""
-  _get_conf_value _gpu_k _gpu_v "mode"         "auto" gpu_mode
-  _get_conf_value _gpu_k _gpu_v "count"        "all"  gpu_count
-  _get_conf_value _gpu_k _gpu_v "capabilities" "gpu"  gpu_caps
-  _get_conf_value _gui_k _gui_v "mode"         "auto" gui_mode
-  _get_conf_value _net_k _net_v "mode"         "host" net_mode
-  _get_conf_value _net_k _net_v "ipc"          "host" ipc_mode
-  _get_conf_value _net_k _net_v "privileged"   "true" privileged
+  local net_mode="" ipc_mode="" privileged="" network_name=""
+  _get_conf_value _dep_k _dep_v "gpu_mode"         "auto" gpu_mode
+  _get_conf_value _dep_k _dep_v "gpu_count"        "all"  gpu_count
+  _get_conf_value _dep_k _dep_v "gpu_capabilities" "gpu"  gpu_caps
+  _get_conf_value _gui_k _gui_v "mode"             "auto" gui_mode
+  _get_conf_value _net_k _net_v "mode"             "host" net_mode
+  _get_conf_value _net_k _net_v "ipc"              "host" ipc_mode
+  _get_conf_value _net_k _net_v "network_name"     ""     network_name
+  _get_conf_value _sec_k _sec_v "privileged"       "true" privileged
+
+  # ── WS_PATH + workspace mount ──
+  #
+  # First-time bootstrap (no <repo>/setup.conf):
+  #   detect ws_path → copy template/setup.conf → upsert [volumes] mount_1.
+  # Subsequent runs:
+  #   <repo>/setup.conf is the source of truth. If mount_1 is set, extract
+  #   its host side as WS_PATH. If mount_1 is intentionally empty (user
+  #   opted out), fall back to best-effort detection for WS_PATH but
+  #   leave setup.conf alone.
+  local _repo_conf="${_base_path}/setup.conf"
+  local _mount_1=""
+  _get_conf_value _vol_k _vol_v "mount_1" "" _mount_1
+
+  if [[ ! -f "${_repo_conf}" ]]; then
+    # First-time bootstrap: create per-repo setup.conf from template, then
+    # write the detected workspace into mount_1.
+    if [[ -z "${ws_path}" ]] || [[ ! -d "${ws_path}" ]]; then
+      detect_ws_path ws_path "${_base_path}"
+    fi
+    [[ -d "${ws_path}" ]] && ws_path="$(cd "${ws_path}" && pwd -P)"
+    local _tpl_conf
+    _tpl_conf="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd -P)/../../setup.conf"
+    if [[ -f "${_tpl_conf}" ]]; then
+      cp "${_tpl_conf}" "${_repo_conf}"
+      _upsert_conf_value "${_repo_conf}" "volumes" "mount_1" \
+        "${ws_path}:/home/\${USER_NAME}/work"
+      # Reload [volumes] so extra_volumes picks up the new mount_1.
+      _vol_k=(); _vol_v=()
+      _load_setup_conf "${_base_path}" "volumes" _vol_k _vol_v
+      _get_conf_value _vol_k _vol_v "mount_1" "" _mount_1
+    fi
+  elif [[ -n "${_mount_1}" ]]; then
+    _mount_host_path "${_mount_1}" ws_path
+  else
+    # setup.conf exists but user cleared mount_1: best-effort detection
+    # for WS_PATH only; do not touch setup.conf.
+    if [[ -z "${ws_path}" ]] || [[ ! -d "${ws_path}" ]]; then
+      detect_ws_path ws_path "${_base_path}"
+    fi
+    [[ -d "${ws_path}" ]] && ws_path="$(cd "${ws_path}" && pwd -P)"
+  fi
 
   # shellcheck disable=SC2034  # populated via nameref by _get_conf_list_sorted
   local -a extra_volumes=()
   _get_conf_list_sorted _vol_k _vol_v "mount_" extra_volumes
+
+  # ── Collect [devices] entries (device_*) ──
+  local -a _devices_arr=()
+  _get_conf_list_sorted _dev_k _dev_v "device_" _devices_arr
+  local _devices_str=""
+  if (( ${#_devices_arr[@]} > 0 )); then
+    _devices_str="$(printf '%s\n' "${_devices_arr[@]}")"
+  fi
+
+  # ── Collect [environment] env_*, [tmpfs] tmpfs_*, [network] port_* ──
+  local -a _env_arr=() _tmpfs_arr=() _ports_arr=()
+  _get_conf_list_sorted _env_k _env_v "env_"    _env_arr
+  _get_conf_list_sorted _tmp_k _tmp_v "tmpfs_"  _tmpfs_arr
+  _get_conf_list_sorted _net_k _net_v "port_"   _ports_arr
+  local _env_str="" _tmpfs_str="" _ports_str=""
+  (( ${#_env_arr[@]}    > 0 )) && _env_str="$(printf '%s\n'    "${_env_arr[@]}")"
+  (( ${#_tmpfs_arr[@]}  > 0 )) && _tmpfs_str="$(printf '%s\n'  "${_tmpfs_arr[@]}")"
+  (( ${#_ports_arr[@]}  > 0 )) && _ports_str="$(printf '%s\n'  "${_ports_arr[@]}")"
+
+  # ── Collect [security] cap_add_*, cap_drop_*, security_opt_* ──
+  local -a _cap_add_arr=() _cap_drop_arr=() _sec_opt_arr=()
+  _get_conf_list_sorted _sec_k _sec_v "cap_add_"      _cap_add_arr
+  _get_conf_list_sorted _sec_k _sec_v "cap_drop_"     _cap_drop_arr
+  _get_conf_list_sorted _sec_k _sec_v "security_opt_" _sec_opt_arr
+
+  # Security fallback: if the per-repo [security] section wiped a list
+  # (no cap_add_* entries at all, likewise for cap_drop_* / security_opt_*),
+  # fall back to the template's baseline rather than Docker's stripped-
+  # down default — avoids surprising the user with "my container lost
+  # SYS_ADMIN / unconfined seccomp after I cleared the list".
+  local _tpl_setup_conf
+  _tpl_setup_conf="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd -P)/../../setup.conf"
+  local -a _tpl_sec_k=() _tpl_sec_v=()
+  [[ -f "${_tpl_setup_conf}" ]] \
+    && _parse_ini_section "${_tpl_setup_conf}" "security" _tpl_sec_k _tpl_sec_v
+  (( ${#_cap_add_arr[@]}  == 0 )) \
+    && _get_conf_list_sorted _tpl_sec_k _tpl_sec_v "cap_add_"      _cap_add_arr
+  (( ${#_cap_drop_arr[@]} == 0 )) \
+    && _get_conf_list_sorted _tpl_sec_k _tpl_sec_v "cap_drop_"     _cap_drop_arr
+  (( ${#_sec_opt_arr[@]}  == 0 )) \
+    && _get_conf_list_sorted _tpl_sec_k _tpl_sec_v "security_opt_" _sec_opt_arr
+
+  local _cap_add_str="" _cap_drop_str="" _sec_opt_str=""
+  (( ${#_cap_add_arr[@]}  > 0 )) && _cap_add_str="$(printf '%s\n'  "${_cap_add_arr[@]}")"
+  (( ${#_cap_drop_arr[@]} > 0 )) && _cap_drop_str="$(printf '%s\n' "${_cap_drop_arr[@]}")"
+  (( ${#_sec_opt_arr[@]}  > 0 )) && _sec_opt_str="$(printf '%s\n'  "${_sec_opt_arr[@]}")"
+
+  # ── [resources] shm_size (only meaningful when ipc != host) ──
+  local _shm_size=""
+  _get_conf_value _res_k _res_v "shm_size" "" _shm_size
 
   # ── Resolve final enabled states ──
   local gpu_enabled_eff="" gui_enabled_eff=""
@@ -822,12 +1056,17 @@ main() {
     "${apt_mirror_ubuntu}" "${apt_mirror_debian}" \
     "${net_mode}" "${ipc_mode}" "${privileged}" \
     "${gpu_count}" "${gpu_caps}" \
-    "${gui_detected}" "${conf_hash}"
+    "${gui_detected}" "${conf_hash}" \
+    "${network_name}"
 
   generate_compose_yaml "${_base_path}/compose.yaml" "${image_name}" \
     "${gui_enabled_eff}" "${gpu_enabled_eff}" \
     "${gpu_count}" "${gpu_caps}" \
-    extra_volumes
+    extra_volumes "${network_name}" \
+    "${_devices_str}" \
+    "${_env_str}" "${_tmpfs_str}" "${_ports_str}" \
+    "${_shm_size}" "${net_mode}" "${ipc_mode}" \
+    "${_cap_add_str}" "${_cap_drop_str}" "${_sec_opt_str}"
 
   printf "[setup] %s\n" "$(_msg env_done)"
   printf "[setup] USER=%s (%s:%s)  GPU=%s/%s  GUI=%s/%s  IMAGE=%s  WS=%s\n" \

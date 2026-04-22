@@ -109,17 +109,36 @@ teardown() {
   assert [ -f "${SANDBOX}/.env" ]
 }
 
-@test "build.sh skips setup.sh when .env exists (drift-check path)" {
-  # Pre-create .env → build.sh must NOT execute setup.sh, only source it.
+@test "build.sh skips setup.sh when .env AND setup.conf exist (drift-check path)" {
+  # Pre-create .env AND setup.conf → build.sh must NOT execute setup.sh,
+  # only source it for drift detection.
   {
     echo "USER_NAME=tester"
     echo "IMAGE_NAME=mockimg"
     echo "DOCKER_HUB_USER=mockuser"
   } > "${SANDBOX}/.env"
+  : > "${SANDBOX}/setup.conf"
   run bash "${SANDBOX}/build.sh" --dry-run
   assert_success
   refute_output --partial "First run"
   assert [ ! -f "${MOCK_SETUP_LOG}" ]
+}
+
+@test "build.sh bootstraps setup.sh when setup.conf is missing (even if .env exists)" {
+  # Regression: previously build.sh only checked .env. If the user
+  # manually deleted setup.conf to reset to defaults, .env alone is
+  # stale and build would skip the bootstrap. Now missing setup.conf
+  # also triggers the bootstrap path.
+  {
+    echo "USER_NAME=tester"
+    echo "IMAGE_NAME=mockimg"
+    echo "DOCKER_HUB_USER=mockuser"
+  } > "${SANDBOX}/.env"
+  rm -f "${SANDBOX}/setup.conf"
+  run bash "${SANDBOX}/build.sh" --dry-run
+  assert_success
+  assert_output --partial "First run"
+  assert [ -f "${MOCK_SETUP_LOG}" ]
 }
 
 @test "build.sh --no-cache is forwarded to docker build and compose" {
