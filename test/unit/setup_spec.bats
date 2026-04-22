@@ -654,13 +654,19 @@ EOF
   run grep 'IPC_MODE=host'      "${_env}"; assert_success
   run grep 'PRIVILEGED=true'    "${_env}"; assert_success
   run grep 'GPU_COUNT=all'      "${_env}"; assert_success
-  run grep 'GPU_CAPABILITIES=gpu' "${_env}"; assert_success
+  run grep -F 'GPU_CAPABILITIES="gpu"' "${_env}"; assert_success
   run grep 'SETUP_CONF_HASH=abc123' "${_env}"; assert_success
   run grep 'SETUP_GUI_DETECTED=true' "${_env}"; assert_success
   run grep -E '^SETUP_TIMESTAMP=' "${_env}"; assert_success
   run grep 'APT_MIRROR_UBUNTU=tw.archive.ubuntu.com' "${_env}"; assert_success
   run grep 'APT_MIRROR_DEBIAN=mirror.twds.com.tw' "${_env}"; assert_success
   run grep 'TZ=Asia/Taipei' "${_env}"; assert_success
+  # bash-source round-trip: re-loading the file must not raise a
+  # "command not found" on any multi-word value (regression: previously
+  # GPU_CAPABILITIES="gpu compute utility graphics" was unquoted).
+  run bash -c "set -o allexport; source '${_env}'"
+  assert_success
+  refute_output --partial "command not found"
 }
 
 # ════════════════════════════════════════════════════════════════════

@@ -805,7 +805,7 @@ NETWORK_NAME=${_network_name}
 IPC_MODE=${_ipc_mode}
 PRIVILEGED=${_privileged}
 GPU_COUNT=${_gpu_count}
-GPU_CAPABILITIES=${_gpu_caps}
+GPU_CAPABILITIES="${_gpu_caps}"
 
 # ── Setup metadata (drift detection — do not edit) ──
 SETUP_CONF_HASH=${_conf_hash}
