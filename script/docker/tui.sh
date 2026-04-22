@@ -1388,6 +1388,7 @@ main() {
       -h|--help) usage ;;
       --lang)
         _LANG="${2:?"--lang requires a value"}"
+        _sanitize_lang _LANG "tui"
         shift 2
         ;;
       image|build|network|deploy|gui|volumes|devices|resources|environment|tmpfs|ports|security)

@@ -818,6 +818,38 @@ EOF
 }
 
 # ════════════════════════════════════════════════════════════════════
+# detect_image_name sanitization
+#
+# docker compose project names + image tags forbid '.' and anything
+# outside [a-z0-9_-]. detect_image_name must normalise whatever the
+# rules produce so downstream `docker compose -p <name>` doesn't
+# reject the generated project name.
+# ════════════════════════════════════════════════════════════════════
+
+@test "detect_image_name replaces '.' with '-' (regression: tmp.abcdef → tmp-abcdef)" {
+  cat > "${TEMP_DIR}/setup.conf" <<'EOF'
+[image]
+rule_1 = @basename
+EOF
+  unset SETUP_CONF
+  local _result
+  BASE_PATH="${TEMP_DIR}" detect_image_name _result "/tmp/tmp.abcdef"
+  assert_equal "${_result}" "tmp-abcdef"
+}
+
+@test "detect_image_name collapses runs of '-' and strips leading/trailing separators" {
+  cat > "${TEMP_DIR}/setup.conf" <<'EOF'
+[image]
+rule_1 = @basename
+EOF
+  unset SETUP_CONF
+  local _result
+  BASE_PATH="${TEMP_DIR}" detect_image_name _result "/tmp/..weird..name.."
+  [[ "${_result}" =~ ^[a-z0-9][a-z0-9_-]*$ ]]
+  assert_equal "${_result}" "weird-name"
+}
+
+# ════════════════════════════════════════════════════════════════════
 # i18n
 # ════════════════════════════════════════════════════════════════════
 

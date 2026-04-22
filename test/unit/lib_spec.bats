@@ -146,3 +146,37 @@ EOF
   assert_output --partial "--env-file /tmp/fakerepo/.env"
   assert_output --partial " ps"
 }
+
+# ════════════════════════════════════════════════════════════════════
+# _sanitize_lang (i18n.sh)
+# ════════════════════════════════════════════════════════════════════
+
+@test "_sanitize_lang accepts en / zh-TW / zh-CN / ja unchanged" {
+  run bash -c "source ${LIB}; v=en;    _sanitize_lang v; echo \"\${v}\""
+  assert_success
+  assert_output "en"
+  run bash -c "source ${LIB}; v=zh-TW; _sanitize_lang v; echo \"\${v}\""
+  assert_success
+  assert_output "zh-TW"
+  run bash -c "source ${LIB}; v=zh-CN; _sanitize_lang v; echo \"\${v}\""
+  assert_success
+  assert_output "zh-CN"
+  run bash -c "source ${LIB}; v=ja;    _sanitize_lang v; echo \"\${v}\""
+  assert_success
+  assert_output "ja"
+}
+
+@test "_sanitize_lang warns and falls back to 'en' for unsupported values" {
+  run bash -c "source ${LIB}; v=foo; _sanitize_lang v test 2>&1; echo \"--VALUE=\${v}\""
+  assert_success
+  assert_output --partial "WARNING"
+  assert_output --partial "foo"
+  assert_output --partial "--VALUE=en"
+}
+
+@test "_sanitize_lang warns for the old bare 'zh' code (post zh→zh-TW rename)" {
+  run bash -c "source ${LIB}; v=zh; _sanitize_lang v tui 2>&1; echo \"--VALUE=\${v}\""
+  assert_success
+  assert_output --partial "WARNING"
+  assert_output --partial "--VALUE=en"
+}

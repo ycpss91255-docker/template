@@ -396,7 +396,23 @@ detect_image_name() {
     printf "[setup] WARNING: IMAGE_NAME could not be detected. Using 'unknown'.\n" >&2
     _found="unknown"
   fi
-  _outvar="${_found,,}"
+  # Lowercase + sanitize: docker compose project names (and image tags)
+  # forbid `.`, uppercase, and anything outside [a-z0-9_-]. `@basename`
+  # on a dir like "tmp.abcdef" would otherwise produce
+  # "yunchien-tmp.abcdef" which docker compose rejects. Map invalids to
+  # `-`, collapse runs, and strip any leading non-alphanumeric.
+  local _lower="${_found,,}"
+  local _sanitized="${_lower//[^a-z0-9_-]/-}"
+  # collapse multiple '-' in a row
+  while [[ "${_sanitized}" == *--* ]]; do
+    _sanitized="${_sanitized//--/-}"
+  done
+  # strip leading '-' / '_'
+  _sanitized="${_sanitized#[-_]}"
+  # strip trailing '-' / '_'
+  _sanitized="${_sanitized%[-_]}"
+  [[ -z "${_sanitized}" ]] && _sanitized="unknown"
+  _outvar="${_sanitized}"
 }
 
 # ════════════════════════════════════════════════════════════════════
@@ -878,6 +894,7 @@ main() {
         ;;
       --lang)
         _LANG="${2:?"--lang requires a value (en|zh-TW|zh-CN|ja)"}"
+        _sanitize_lang _LANG "setup"
         shift 2
         ;;
       *)

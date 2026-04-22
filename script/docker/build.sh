@@ -135,6 +135,7 @@ main() {
         ;;
       --lang)
         _LANG="${2:?"--lang requires a value (en|zh-TW|zh-CN|ja)"}"
+        _sanitize_lang _LANG "build"
         shift 2
         ;;
       *)
