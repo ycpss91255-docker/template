@@ -1,6 +1,6 @@
 # TEST.md
 
-Template self-tests: **359 tests** total (333 unit + 26 integration).
+Template self-tests: **425 tests** total (399 unit + 26 integration).
 
 ## Test Files
 
@@ -24,21 +24,22 @@ Template self-tests: **359 tests** total (333 unit + 26 integration).
 | `_compose without DRY_RUN tries to invoke docker compose (sanity)` | Real-call branch |
 | `_compose_project pre-fills -p / -f / --env-file from PROJECT_NAME and FILE_PATH` | Project wrapper |
 
-### test/unit/setup_spec.bats (70)
+### test/unit/setup_spec.bats (77)
 
 Covers core detection (user/hardware/docker/GPU/GUI), the INI parser
 (`_parse_ini_section`), setup.conf section merging (`_load_setup_conf`
-with replace strategy), image_name rule engine via `[image_name] rules`,
+with replace strategy), image_name rule engine via `[image] rules`,
 resolvers (`_resolve_gpu`, `_resolve_gui`), workspace path detection,
 conf hash computation, drift detection, `write_env` (now including
-runtime values + SETUP_* metadata), and the `main()` CLI.
+runtime values + SETUP_* metadata), the `main()` CLI, and workspace
+writeback (first-time bootstrap / user-edit respect / opt-out).
 
 | Category | Tests |
 |----------|-------|
 | `detect_user_info` / `detect_hardware` / `detect_docker_hub_user` / `detect_gpu` / `detect_gui` | 11 |
 | `_parse_ini_section` (section isolation, comments, trim, missing) | 6 |
 | `_load_setup_conf` (SETUP_CONF env, per-repo, template, replace) | 4 |
-| `_get_conf_value` / `_get_conf_list_sorted` | 4 |
+| `_get_conf_value` / `_get_conf_list_sorted` (incl. empty-value skip) | 5 |
 | `_resolve_gpu` / `_resolve_gui` | 7 |
 | `detect_image_name` (template default, per-repo rules, @env_example, @default, order) | 8 |
 | `detect_ws_path` (strategies 1/2/3 + missing base_path) | 5 |
@@ -47,6 +48,39 @@ runtime values + SETUP_* metadata), and the `main()` CLI.
 | `_check_setup_drift` (no-op, silent, conf drift, GPU drift) | 4 |
 | `main` (unknown arg, --base-path / --lang missing value) | 3 |
 | `_msg` / `_detect_lang` i18n | 6 |
+| `[build]` apt_mirror (empty fallback, override) | 2 |
+| Workspace writeback (first-time, respect user edit, opt-out) | 3 |
+
+### test/unit/tui_spec.bats (27)
+
+Pure-logic unit tests for the TUI support libraries (`_tui_conf.sh`).
+No dialog/whiptail invocations here — strictly validators, mount-string
+parsers, and setup.conf round-trip.
+
+| Category | Tests |
+|----------|-------|
+| `_validate_mount` (valid forms, env-var expansion, reject missing/extra colons, invalid mode) | 8 |
+| `_validate_gpu_count` ('all', positive int, reject 0/negative/non-numeric/empty) | 6 |
+| `_validate_enum` (match, non-match, empty) | 3 |
+| `_mount_host_path` (plain, with mode, with env-var host) | 3 |
+| `_load_setup_conf_full` + `_write_setup_conf` (section order, kv, comment preservation, untouched keys, round-trip) | 5 |
+| `_upsert_conf_value` (updates existing, leaves other sections untouched) | 2 |
+
+### test/unit/tui_backend_spec.bats (11)
+
+Backend detection and wrapper-level arg forwarding. Uses a stub
+`dialog` / `whiptail` binary installed on PATH that logs argv and echoes
+a canned response; exercised with `TUI_STUB_RESPONSE` / `TUI_STUB_EXIT`.
+
+| Category | Tests |
+|----------|-------|
+| `_backend_detect` (prefers dialog, falls back to whiptail, prints install hint when neither) | 3 |
+| `_tui_guard` (rejects empty backend) | 1 |
+| `_tui_inputbox` (forwards title/prompt/initial, returns canned response, propagates non-zero on cancel) | 2 |
+| `_tui_menu` (computes item count, forwards tag/label pairs) | 1 |
+| `_tui_radiolist` (forwards tag/label/state triples) | 1 |
+| `_tui_checklist` (passes `--separate-output`) | 1 |
+| `_tui_msgbox` / `_tui_yesno` (correct flags, propagates exit code) | 2 |
 
 ### test/unit/build_sh_spec.bats (18)
 

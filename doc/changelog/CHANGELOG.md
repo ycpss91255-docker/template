@@ -7,14 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (TUI UX 重構 — 2026-04-21 本地)
+- **主選單重組**：11 項平鋪 → 5 常用（network / deploy / gui / volumes /
+  environment）+ `advanced` 子選單（image / build / devices / tmpfs /
+  security）
+- **Save UX**：去掉 `__save` menu item，改用 dialog/whiptail 的
+  `--extra-button --extra-label "Save & Exit"`（exit code 3 = save
+  訊號，0 = 進選中項，1 = Cancel）
+- **List sections 統一 single-layer**：volumes / environment / devices /
+  tmpfs / ports 點 item 直接 inputbox；**空值 + OK = mark_removed**
+  （該 key 從 setup.conf 消失）；list menu 只保留 Add / Back
+- **Conditional triggers**：`shm_size` 不再是主選單項，改為
+  `[network] ipc != host` 時從 network 結尾彈出；`ports` 改為
+  `mode == bridge` 時從 network 結尾彈出
+- **privileged 遷移**：從 `[network] privileged` 搬到新 `[security]
+  privileged`。TUI 的 privileged yesno 由 Advanced → Security 編輯
+- **`[security]` 新 section**：privileged / cap_add_* / cap_drop_* /
+  security_opt_*。先前 compose.yaml 硬編的 SYS_ADMIN / NET_ADMIN /
+  MKNOD / seccomp:unconfined 改為 setup.conf template 預設值，可由
+  TUI 或手編調整
+
+### Removed
+- **cgroup (`device_cgroup_rules`)**：setup.conf 註解、parser、TUI、
+  compose.yaml `device_cgroup_rules:` 產生邏輯全拿掉。使用者手寫
+  `cgroup_N = ...` 會被忽略
+
 ### Added
+- **Interactive TUI** (`tui.sh`) for editing `<repo>/setup.conf` via
+  dialog (with whiptail fallback). Main menu + direct-jump subcommands
+  (`./tui.sh image|build|network|deploy|gui|volumes`). Validates
+  mount format, GPU count, and enum fields before save. On save,
+  invokes `setup.sh` automatically to regenerate `.env` +
+  `compose.yaml`. Symlinked from each repo root via `init.sh`.
+  4-language i18n (en / zh / zh-CN / ja).
+- **`_tui_backend.sh`** — dialog/whiptail abstraction
+  (`_tui_menu`, `_tui_radiolist`, `_tui_checklist`, `_tui_inputbox`,
+  `_tui_yesno`, `_tui_msgbox`). Preferred backend auto-detected;
+  exits with install hint when neither is installed.
+- **`_tui_conf.sh`** — pure-logic INI read/write helpers:
+  `_load_setup_conf_full` (full file with section order preserved),
+  `_write_setup_conf` (comment-preserving overwrite),
+  `_upsert_conf_value` (single-key in-place edit), plus validators
+  (`_validate_mount`, `_validate_gpu_count`, `_validate_enum`) and
+  mount-string parsers.
+- **`[build]` section** in `setup.conf` for Dockerfile build args
+  (`apt_mirror_ubuntu`, `apt_mirror_debian`). Empty value keeps the
+  hard-coded Taiwan mirror defaults.
+- **Workspace writeback**: on first run (when `<repo>/setup.conf` does
+  not exist), `setup.sh` detects the workspace host path, copies
+  `template/setup.conf` to `<repo>/setup.conf`, and writes the
+  detected workspace into `[volumes] mount_1`. Subsequent runs read
+  `mount_1` as the source of truth. Clearing `mount_1` is treated as
+  opt-out; the workspace is omitted from `compose.yaml` and `setup.sh`
+  does not re-populate it.
+- `build.sh` / `run.sh` `--setup` / `-s` is now **TTY-aware**: under
+  an interactive terminal with `tui.sh` available, it launches the
+  TUI; otherwise it runs `setup.sh` non-interactively (unchanged
+  behaviour for CI / non-TTY).
+- `init.sh _create_symlinks` adds `tui.sh` alongside the existing
+  five symlinks.
 - **Single `setup.conf`** at repo root consolidates all runtime
-  configuration consumed by `setup.sh`: `[image_name]`, `[gpu]`,
-  `[gui]`, `[network]`, `[volumes]`. Template default lives at
-  `template/setup.conf`; per-repo override at `<repo>/setup.conf` uses
-  section-level replace strategy (a section present in the per-repo
-  file fully replaces the template's section; omitted sections fall
-  back to template).
+  configuration consumed by `setup.sh`: `[image]`, `[build]`,
+  `[deploy]`, `[gui]`, `[network]`, `[volumes]`. Template default
+  lives at `template/setup.conf`; per-repo override at
+  `<repo>/setup.conf` uses section-level replace strategy (a section
+  present in the per-repo file fully replaces the template's section;
+  omitted sections fall back to template).
 - `setup.sh` new helpers: `_parse_ini_section`, `_load_setup_conf`,
   `_get_conf_value`, `_get_conf_list_sorted`, `_resolve_gpu`,
   `_resolve_gui`, `detect_gui`, `_compute_conf_hash`,
@@ -48,7 +106,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `compose.yaml` is now a **derived artifact** (gitignored) generated
   by `setup.sh` on every invocation. Users inspect it for the current
   effective runtime config; source of truth is `setup.conf`.
-- `detect_image_name` now reads `[image_name] rules` (comma-separated
+- **BREAKING — setup.conf section rename**:
+  `[image_name]` → `[image]`; `[gpu]` → `[deploy]` with keys prefixed
+  (`mode` → `gpu_mode`, `count` → `gpu_count`,
+  `capabilities` → `gpu_capabilities`). Also introduces `[build]`
+  (apt mirrors). Template `setup.conf` updated; per-repo overrides
+  must use the new names.
+- `detect_image_name` now reads `[image] rules` (comma-separated
   ordered list) from `setup.conf` instead of a dedicated
   `image_name.conf` rule file. Rule semantics unchanged
   (`prefix:`, `suffix:`, `@env_example`, `@basename`, `@default:`).
