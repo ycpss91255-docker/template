@@ -1,6 +1,6 @@
 # TEST.md
 
-Template self-tests: **425 tests** total (399 unit + 26 integration).
+Template self-tests: **476 tests** total (448 unit + 28 integration).
 
 ## Test Files
 
@@ -24,7 +24,7 @@ Template self-tests: **425 tests** total (399 unit + 26 integration).
 | `_compose without DRY_RUN tries to invoke docker compose (sanity)` | Real-call branch |
 | `_compose_project pre-fills -p / -f / --env-file from PROJECT_NAME and FILE_PATH` | Project wrapper |
 
-### test/unit/setup_spec.bats (77)
+### test/unit/setup_spec.bats (85)
 
 Covers core detection (user/hardware/docker/GPU/GUI), the INI parser
 (`_parse_ini_section`), setup.conf section merging (`_load_setup_conf`
@@ -51,7 +51,7 @@ writeback (first-time bootstrap / user-edit respect / opt-out).
 | `[build]` apt_mirror (empty fallback, override) | 2 |
 | Workspace writeback (first-time, respect user edit, opt-out) | 3 |
 
-### test/unit/tui_spec.bats (27)
+### test/unit/tui_spec.bats (59)
 
 Pure-logic unit tests for the TUI support libraries (`_tui_conf.sh`).
 No dialog/whiptail invocations here — strictly validators, mount-string
@@ -107,7 +107,7 @@ check, `--detach`, devel vs non-devel TARGET routing, `--instance`,
 already-running guard, Wayland xhost path, `--lang` / `--instance`
 argument validation, fallback `_detect_lang` branches.
 
-### test/unit/compose_gen_spec.bats (14)
+### test/unit/compose_gen_spec.bats (31)
 
 Covers `generate_compose_yaml` conditional output: AUTO-GENERATED
 header, baseline workspace volume, network/ipc/privileged env-var

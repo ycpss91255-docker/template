@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Wave 1 + Wave 2 — 2026-04-22)
+- **GPU MIG detection** (`_detect_mig` / `_list_gpu_instances` in
+  `_tui_conf.sh`): when host has NVIDIA MIG mode enabled, the deploy
+  editor opens with a msgbox listing GPU / MIG instance UUIDs and
+  advising `NVIDIA_VISIBLE_DEVICES=<MIG-UUID>` via `[environment]`
+  since `count=N` targets whole GPUs only
+- **`[build] tz` key**: container timezone exposed as a setup.conf
+  value; pipes through to compose.yaml `build.args` as
+  `TZ: ${TZ:-Asia/Taipei}`. Empty keeps Dockerfile default
+- **`[devices] cgroup_rule_*`**: `device_cgroup_rules:` block for USB
+  hotplug / dynamic device nodes; TUI devices editor now has a
+  sub-menu to pick between device bindings and cgroup rules. New
+  `_validate_cgroup_rule` validator
+
+### Changed
+- `[image] rule_*` dedup on write: re-adding a rule that already
+  exists at another slot moves it to the new position instead of
+  leaving two identical entries
+- `_edit_list_section` add now reuses empty slots (e.g. cleared
+  `mount_1` after user opted out of workspace), preventing the next
+  mount from leapfrogging to `mount_2`
+- TUI image-rule type picker simplified to function names only
+  (`prefix` / `suffix` / `@basename` / `@default`); format + example
+  shown in the value inputbox
+- TUI footer buttons (`Save` / `Enter` / `Cancel`) no longer i18n'd;
+  consistent English across all locales
+- `_TUI_LANG_UPPER` initialised at source time so sourcing `tui.sh`
+  and calling a section editor directly (tests, REPL) no longer
+  crashes on unbound variable under `set -u`
+
+### BREAKING
+- **Language code `zh` renamed to `zh-TW`** (BCP-47). `--lang zh`
+  no longer accepted; use `--lang zh-TW` (Taiwan Traditional).
+  `zh-CN` / `ja` / `en` unchanged
+- **`@env_example` image-name rule removed**: legacy rule that read
+  `IMAGE_NAME` from `.env.example` deleted along with its TUI option
+  + i18n keys. `.env` is a setup.sh-derived artifact so the rule
+  created a cycle. Replace with explicit `rule_N = @default:<name>`
+  or set `IMAGE_NAME` directly
+
+### Removed (tried, reverted)
+- **B7 vim keybindings** (attempted `DIALOGRC bindkey j/k/h/l`):
+  reverted in `ccc0dbc`. `dialog` 1.3 rejects letter curses_keys —
+  only symbolic names (`TAB` / `DOWN` / `UP` / `ENTER`) are valid.
+  See repo-root `TODO.md` for alternative-backend options (gum /
+  fzf / textual) queued for a future PR
+
 ### Changed (TUI UX 重構 — 2026-04-21 本地)
 - **主選單重組**：11 項平鋪 → 5 常用（network / deploy / gui / volumes /
   environment）+ `advanced` 子選單（image / build / devices / tmpfs /
