@@ -155,6 +155,37 @@ _mount_container_path() {
 }
 
 # ════════════════════════════════════════════════════════════════════
+# NVIDIA MIG detection
+#
+# MIG (Multi-Instance GPU, A100/H100+) splits one physical GPU into
+# isolated slices addressable by UUID. Docker's `count=N` reservation
+# targets whole GPUs, so to pin a specific slice users must set
+# NVIDIA_VISIBLE_DEVICES=<MIG-UUID> via [environment]. The TUI uses
+# these helpers to detect MIG mode and show the user the available
+# slice UUIDs before they edit the [deploy] count.
+# ════════════════════════════════════════════════════════════════════
+
+# _detect_mig
+#
+# Returns 0 when the host has NVIDIA MIG mode enabled on at least one
+# GPU, 1 otherwise (including when nvidia-smi is missing).
+_detect_mig() {
+  command -v nvidia-smi >/dev/null 2>&1 || return 1
+  local _mig_mode
+  _mig_mode="$(nvidia-smi --query-gpu=mig.mode.current \
+    --format=csv,noheader 2>/dev/null | head -1)"
+  [[ "${_mig_mode}" == "Enabled" ]]
+}
+
+# _list_gpu_instances
+#
+# Prints `nvidia-smi -L` output verbatim (GPU and MIG lines with UUIDs).
+# Emits nothing if nvidia-smi is missing or fails.
+_list_gpu_instances() {
+  nvidia-smi -L 2>/dev/null
+}
+
+# ════════════════════════════════════════════════════════════════════
 # INI reader (full file, preserving section order)
 # ════════════════════════════════════════════════════════════════════
 
