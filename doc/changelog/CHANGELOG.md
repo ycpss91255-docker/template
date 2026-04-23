@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **`_lib.sh` `_print_config_summary` now honours `${_LANG}`**. Previously
+  the build/run config summary (Files / Identity / Resolved / Customize
+  sections, plus user / hardware / workspace / GPU enabled / GUI enabled
+  / network / privileged labels) was hardcoded English regardless of
+  `--lang` / `SETUP_LANG`. Agent A's v0.9.7 i18n PR explicitly scoped
+  this out as "too much to bite off"; user feedback after the Jetson
+  upgrade: `./run.sh --lang zh-TW` still looked English because the
+  summary is 90% of the output. A new `_lib_msg` translation table
+  covers `en` / `zh-TW` / `zh-CN` / `ja`. Technical identifiers kept
+  untranslated: file names (`setup.conf` / `.env` / `compose.yaml`),
+  INI section names (`[image]` / ...), `.env` variable names (`TZ`,
+  `APT_MIRROR_*`, `IPC`, `CAPS`), and command strings in the Customize
+  hint.
+
 ## [v0.9.8] - 2026-04-23
 
 ### Fixed

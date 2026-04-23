@@ -1,10 +1,10 @@
 # TEST.md
 
-Template self-tests: **610 tests** total (567 unit + 43 integration).
+Template self-tests: **618 tests** total (575 unit + 43 integration).
 
 ## Test Files
 
-### test/unit/lib_spec.bats (26)
+### test/unit/lib_spec.bats (34)
 
 | Test | Description |
 |------|-------------|

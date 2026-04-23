@@ -96,6 +96,97 @@ _dump_conf_section() {
   ' "${_file}"
 }
 
+# _lib_msg <key>
+#
+# Translation table for labels printed by `_print_config_summary`.
+# Uses the same `${_LANG}:${_key}` → output pattern as setup.sh /
+# build.sh's `_msg`. Kept in a separate namespace (`_lib_msg`) so
+# caller scripts can still define their own `_msg` for script-specific
+# log lines without name collisions.
+#
+# Translated: section headings + descriptive labels. Left untranslated
+# (technical terms / identifiers users recognise across locales): file
+# names (setup.conf / .env / compose.yaml), INI section names in [ ],
+# .env variable names (TZ, APT_MIRROR_*, IPC, CAPS), command strings
+# in "Customize" hint.
+_lib_msg() {
+  local _key="${1:?}"
+  case "${_LANG:-en}:${_key}" in
+    # Section headings
+    zh-TW:files)             echo "檔案" ;;
+    zh-CN:files)             echo "文件" ;;
+    ja:files)                echo "ファイル" ;;
+    *:files)                 echo "Files" ;;
+    zh-TW:identity)          echo "身分" ;;
+    zh-CN:identity)          echo "身份" ;;
+    ja:identity)             echo "ID" ;;
+    *:identity)              echo "Identity" ;;
+    zh-TW:resolved)          echo "解析結果" ;;
+    zh-CN:resolved)          echo "解析结果" ;;
+    ja:resolved)             echo "解決済み" ;;
+    *:resolved)              echo "Resolved" ;;
+    # Identity field labels
+    zh-TW:user)              echo "使用者" ;;
+    zh-CN:user)              echo "用户" ;;
+    ja:user)                 echo "ユーザー" ;;
+    *:user)                  echo "user" ;;
+    zh-TW:group)             echo "群組" ;;
+    zh-CN:group)             echo "组" ;;
+    ja:group)                echo "グループ" ;;
+    *:group)                 echo "group" ;;
+    zh-TW:hardware)          echo "硬體" ;;
+    zh-CN:hardware)          echo "硬件" ;;
+    ja:hardware)             echo "ハードウェア" ;;
+    *:hardware)              echo "hardware" ;;
+    zh-TW:image_tag)         echo "映像 / 標籤" ;;
+    zh-CN:image_tag)         echo "镜像 / 标签" ;;
+    ja:image_tag)            echo "イメージ / タグ" ;;
+    *:image_tag)             echo "image / tag" ;;
+    zh-TW:project)           echo "專案" ;;
+    zh-CN:project)           echo "项目" ;;
+    ja:project)              echo "プロジェクト" ;;
+    *:project)               echo "project" ;;
+    zh-TW:workspace)         echo "工作區" ;;
+    zh-CN:workspace)         echo "工作区" ;;
+    ja:workspace)            echo "ワークスペース" ;;
+    *:workspace)             echo "workspace" ;;
+    # Resolved field labels
+    zh-TW:gpu_enabled)       echo "GPU 已啟用" ;;
+    zh-CN:gpu_enabled)       echo "GPU 已启用" ;;
+    ja:gpu_enabled)          echo "GPU 有効" ;;
+    *:gpu_enabled)           echo "GPU enabled" ;;
+    zh-TW:count)             echo "數量" ;;
+    zh-CN:count)             echo "数量" ;;
+    ja:count)                echo "数量" ;;
+    *:count)                 echo "count" ;;
+    zh-TW:caps)              echo "能力" ;;
+    zh-CN:caps)              echo "能力" ;;
+    ja:caps)                 echo "ケーパビリティ" ;;
+    *:caps)                  echo "caps" ;;
+    zh-TW:gui_enabled)       echo "GUI 已啟用" ;;
+    zh-CN:gui_enabled)       echo "GUI 已启用" ;;
+    ja:gui_enabled)          echo "GUI 有効" ;;
+    *:gui_enabled)           echo "GUI enabled" ;;
+    zh-TW:network)           echo "網路" ;;
+    zh-CN:network)           echo "网络" ;;
+    ja:network)              echo "ネットワーク" ;;
+    *:network)               echo "network" ;;
+    zh-TW:privileged)        echo "特權" ;;
+    zh-CN:privileged)        echo "特权" ;;
+    ja:privileged)           echo "特権" ;;
+    *:privileged)            echo "privileged" ;;
+    # Hints / errors
+    zh-TW:conf_missing)      echo "(找不到 setup.conf — 執行 ./setup_tui.sh 或 ./%s.sh --setup)" ;;
+    zh-CN:conf_missing)      echo "(找不到 setup.conf — 运行 ./setup_tui.sh 或 ./%s.sh --setup)" ;;
+    ja:conf_missing)         echo "(setup.conf が見つかりません — ./setup_tui.sh または ./%s.sh --setup を実行してください)" ;;
+    *:conf_missing)          echo "(setup.conf not found — run ./setup_tui.sh or ./%s.sh --setup)" ;;
+    zh-TW:customize)         echo "自訂" ;;
+    zh-CN:customize)         echo "自定义" ;;
+    ja:customize)            echo "カスタマイズ" ;;
+    *:customize)             echo "Customize" ;;
+  esac
+}
+
 # _print_config_summary <tag>
 #
 # Print the resolved runtime config right before the main action
@@ -109,6 +200,9 @@ _dump_conf_section() {
 # Expects FILE_PATH + standard .env variables already in scope
 # (caller must `_load_env` first). Missing values render as "-".
 #
+# Labels honor ${_LANG} via `_lib_msg`; technical terms stay
+# untranslated (see _lib_msg header).
+#
 # Args:
 #   $1: short tag prefix for log lines (e.g. "build", "run")
 _print_config_summary() {
@@ -120,17 +214,18 @@ _print_config_summary() {
   local _proj="${PROJECT_NAME:-${DOCKER_HUB_USER:-local}-${IMAGE_NAME:-unknown}}"
 
   printf "[%s] %s\n" "${_tag}" "${_line}"
-  printf "[%s] Files\n" "${_tag}"
+  printf "[%s] %s\n" "${_tag}" "$(_lib_msg files)"
   printf "[%s]   setup.conf   : %s\n"   "${_tag}" "${_conf}"
   printf "[%s]   .env         : %s\n"   "${_tag}" "${_fp}/.env"
   printf "[%s]   compose.yaml : %s\n"   "${_tag}" "${_fp}/compose.yaml"
-  printf "[%s] Identity\n" "${_tag}"
-  printf "[%s]   user         : %s (uid=%s)  group=%s (gid=%s)\n" "${_tag}" \
-    "${USER_NAME:--}" "${USER_UID:--}" "${USER_GROUP:--}" "${USER_GID:--}"
-  printf "[%s]   hardware     : %s\n" "${_tag}" "${HARDWARE:--}"
-  printf "[%s]   image / tag  : %s\n" "${_tag}" "${_img}"
-  printf "[%s]   project      : %s\n" "${_tag}" "${_proj}"
-  printf "[%s]   workspace    : %s\n" "${_tag}" "${WS_PATH:--}"
+  printf "[%s] %s\n" "${_tag}" "$(_lib_msg identity)"
+  printf "[%s]   %-12s : %s (uid=%s)  %s=%s (gid=%s)\n" "${_tag}" \
+    "$(_lib_msg user)" "${USER_NAME:--}" "${USER_UID:--}" \
+    "$(_lib_msg group)" "${USER_GROUP:--}" "${USER_GID:--}"
+  printf "[%s]   %-12s : %s\n" "${_tag}" "$(_lib_msg hardware)" "${HARDWARE:--}"
+  printf "[%s]   %-12s : %s\n" "${_tag}" "$(_lib_msg image_tag)" "${_img}"
+  printf "[%s]   %-12s : %s\n" "${_tag}" "$(_lib_msg project)" "${_proj}"
+  printf "[%s]   %-12s : %s\n" "${_tag}" "$(_lib_msg workspace)" "${WS_PATH:--}"
 
   # setup.conf section-by-section dump. Each section prints only if
   # non-empty to stay readable. Order matches the TUI main menu so
@@ -148,23 +243,25 @@ _print_config_summary() {
       done <<< "${_content}"
     done
   else
-    printf "[%s]   (setup.conf not found — run ./setup_tui.sh or ./%s.sh --setup)\n" \
-      "${_tag}" "${_tag}"
+    # shellcheck disable=SC2059  # format string is intentional (i18n table owns %s)
+    printf "[%s]   $(_lib_msg conf_missing)\n" "${_tag}" "${_tag}"
   fi
 
   # Resolved post-merge flags that the user can't infer from setup.conf
   # alone (GPU/GUI depend on host detection in addition to mode=auto).
-  printf "[%s] Resolved\n" "${_tag}"
-  printf "[%s]   GPU enabled : %s  count=%s  caps=%s\n" "${_tag}" \
-    "${GPU_ENABLED:--}" "${GPU_COUNT:--}" "${GPU_CAPABILITIES:--}"
-  printf "[%s]   GUI enabled : %s\n" "${_tag}" "${SETUP_GUI_DETECTED:--}"
-  printf "[%s]   network     : %s  ipc=%s  privileged=%s\n" "${_tag}" \
-    "${NETWORK_MODE:--}" "${IPC_MODE:--}" "${PRIVILEGED:--}"
+  printf "[%s] %s\n" "${_tag}" "$(_lib_msg resolved)"
+  printf "[%s]   %s : %s  count=%s  caps=%s\n" "${_tag}" \
+    "$(_lib_msg gpu_enabled)" "${GPU_ENABLED:--}" "${GPU_COUNT:--}" "${GPU_CAPABILITIES:--}"
+  printf "[%s]   %s : %s\n" "${_tag}" \
+    "$(_lib_msg gui_enabled)" "${SETUP_GUI_DETECTED:--}"
+  printf "[%s]   %s     : %s  ipc=%s  %s=%s\n" "${_tag}" \
+    "$(_lib_msg network)" "${NETWORK_MODE:--}" "${IPC_MODE:--}" \
+    "$(_lib_msg privileged)" "${PRIVILEGED:--}"
   printf "[%s]   TZ=%s  apt_ubuntu=%s  apt_debian=%s\n" "${_tag}" \
     "${TZ:--}" "${APT_MIRROR_UBUNTU:--}" "${APT_MIRROR_DEBIAN:--}"
 
-  printf "[%s] Customize: ./setup_tui.sh  |  ./%s.sh --setup  |  edit setup.conf\n" \
-    "${_tag}" "${_tag}"
+  printf "[%s] %s: ./setup_tui.sh  |  ./%s.sh --setup  |  edit setup.conf\n" \
+    "${_tag}" "$(_lib_msg customize)" "${_tag}"
   printf "[%s] %s\n" "${_tag}" "${_line}"
 }
 
