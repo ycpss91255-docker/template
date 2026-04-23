@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **`[volumes] mount_1` portability**: `setup.sh` used to bake the
+  absolute host workspace path into `setup.conf` on first-time
+  bootstrap. Committing that file broke fresh clones on any other
+  machine whose filesystem layout differed — `_load_env` resolved
+  `WS_PATH` to a directory that doesn't exist and docker tried to
+  mount it. `setup.sh` now writes `mount_1` in the portable
+  `${WS_PATH}:/home/${USER_NAME}/work` form so docker-compose resolves
+  `${WS_PATH}` per-machine from `.env`. When a stale absolute path
+  (baked from another machine, absent locally) is encountered,
+  `setup.sh` warns and auto-migrates `mount_1` back to the portable
+  form. Users who intentionally pin an existing absolute path still
+  get that value honored.
+
 ## [v0.9.3] - 2026-04-23
 
 ### BREAKING

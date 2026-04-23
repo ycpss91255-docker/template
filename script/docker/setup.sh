@@ -1090,20 +1090,35 @@ main() {
 
   # ── WS_PATH + workspace mount ──
   #
-  # First-time bootstrap (no <repo>/setup.conf):
-  #   detect ws_path → copy template/setup.conf → upsert [volumes] mount_1.
-  # Subsequent runs:
-  #   <repo>/setup.conf is the source of truth. If mount_1 is set, extract
-  #   its host side as WS_PATH. If mount_1 is intentionally empty (user
-  #   opted out), fall back to best-effort detection for WS_PATH but
-  #   leave setup.conf alone.
+  # mount_1 can be:
+  #   - `${WS_PATH}:/home/${USER_NAME}/work` — portable form (default
+  #     since v0.9.4). docker-compose resolves ${WS_PATH} from .env on
+  #     each machine. setup.sh re-runs detect_ws_path locally.
+  #   - absolute host path — user pinned a specific directory. Honored
+  #     as long as the path exists on this machine.
+  #   - stale absolute path (baked from another machine, path absent
+  #     locally) — warn, auto-migrate mount_1 back to the portable
+  #     ${WS_PATH} form, and re-detect locally.
+  #   - empty — user opted out; skip the mount but still detect WS_PATH
+  #     so .env remains populated.
+  #
+  # First-time bootstrap (no <repo>/setup.conf) copies the template and
+  # writes mount_1 in the portable form.
   local _repo_conf="${_base_path}/setup.conf"
   local _mount_1=""
   _get_conf_value _vol_k _vol_v "mount_1" "" _mount_1
 
+  # SC2016: literal ${WS_PATH} / ${USER_NAME} are intentional — this
+  # string is written into setup.conf and expanded by docker-compose
+  # (via .env) at container start time, not by shell here.
+  # shellcheck disable=SC2016
+  local _ws_portable_form='${WS_PATH}:/home/${USER_NAME}/work'
+
   if [[ ! -f "${_repo_conf}" ]]; then
-    # First-time bootstrap: create per-repo setup.conf from template, then
-    # write the detected workspace into mount_1.
+    # First-time bootstrap: create per-repo setup.conf from template.
+    # Write mount_1 as the portable ${WS_PATH} form so the committed
+    # file stays machine-agnostic; .env carries the detected absolute
+    # path for docker-compose to expand.
     if [[ -z "${ws_path}" ]] || [[ ! -d "${ws_path}" ]]; then
       detect_ws_path ws_path "${_base_path}"
     fi
@@ -1113,14 +1128,48 @@ main() {
     if [[ -f "${_tpl_conf}" ]]; then
       cp "${_tpl_conf}" "${_repo_conf}"
       _upsert_conf_value "${_repo_conf}" "volumes" "mount_1" \
-        "${ws_path}:/home/\${USER_NAME}/work"
+        "${_ws_portable_form}"
       # Reload [volumes] so extra_volumes picks up the new mount_1.
       _vol_k=(); _vol_v=()
       _load_setup_conf "${_base_path}" "volumes" _vol_k _vol_v
       _get_conf_value _vol_k _vol_v "mount_1" "" _mount_1
     fi
   elif [[ -n "${_mount_1}" ]]; then
-    _mount_host_path "${_mount_1}" ws_path
+    local _mount_1_host=""
+    _mount_host_path "${_mount_1}" _mount_1_host
+    # SC2016: literal ${WS_PATH} / $WS_PATH substrings are intentional
+    # — we are matching the variable reference stored in setup.conf,
+    # not expanding it.
+    # shellcheck disable=SC2016
+    if [[ "${_mount_1_host}" == *'${WS_PATH}'* ]] \
+        || [[ "${_mount_1_host}" == *'$WS_PATH'* ]]; then
+      # Portable form — detect ws_path locally; mount_1 stays untouched.
+      ws_path=""
+      detect_ws_path ws_path "${_base_path}"
+      [[ -d "${ws_path}" ]] && ws_path="$(cd "${ws_path}" && pwd -P)"
+    elif [[ -d "${_mount_1_host}" ]]; then
+      # User pinned an absolute path that exists locally — honor it.
+      ws_path="${_mount_1_host}"
+    else
+      # Absolute path that doesn't exist on this machine — almost always
+      # a stale bake from another contributor's clone. Warn loudly so
+      # the user understands the rewrite, then migrate mount_1 back to
+      # the portable form.
+      printf "[setup] WARNING: [volumes] mount_1 host path '%s' does not exist on this machine.\n" \
+        "${_mount_1_host}" >&2
+      printf "[setup]          This is usually a stale absolute path committed from\n" >&2
+      printf "[setup]          a different machine. Rewriting mount_1 to the portable\n" >&2
+      printf "[setup]          '\${WS_PATH}:/home/\${USER_NAME}/work' form and re-detecting\n" >&2
+      printf "[setup]          WS_PATH locally. Commit the updated setup.conf to share.\n" >&2
+      ws_path=""
+      detect_ws_path ws_path "${_base_path}"
+      [[ -d "${ws_path}" ]] && ws_path="$(cd "${ws_path}" && pwd -P)"
+      _upsert_conf_value "${_repo_conf}" "volumes" "mount_1" \
+        "${_ws_portable_form}"
+      _vol_k=(); _vol_v=()
+      _load_setup_conf "${_base_path}" "volumes" _vol_k _vol_v
+      _get_conf_value _vol_k _vol_v "mount_1" "" _mount_1
+    fi
   else
     # setup.conf exists but user cleared mount_1: best-effort detection
     # for WS_PATH only; do not touch setup.conf.
