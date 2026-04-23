@@ -64,6 +64,7 @@ _install_deps() {
   apt-get install -y --no-install-recommends \
       bats bats-support bats-assert \
       shellcheck git ca-certificates \
+      parallel \
     || _die "apt-get install failed for bats/shellcheck deps."
 
   # bats-mock is distro-packaged on newer distros but missing on bookworm,
@@ -89,10 +90,16 @@ _run_shellcheck() {
 # ── Bats tests ───────────────────────────────────────────────────────────────
 
 _run_tests() {
-  echo "--- Running Bats Unit Tests ---"
-  bats "${REPO_ROOT}/test/unit/"
-  echo "--- Running Bats Integration Tests ---"
-  bats "${REPO_ROOT}/test/integration/"
+  # --jobs N uses GNU parallel under the hood; bats parallelizes both
+  # across files and within files by default. All specs use per-test
+  # mktemp dirs (BATS_TEST_TMPDIR / TEMP_DIR) so there's no shared
+  # filesystem state between tests — safe to run concurrently.
+  local _jobs
+  _jobs="$(nproc 2>/dev/null || echo 4)"
+  echo "--- Running Bats Unit Tests (jobs=${_jobs}) ---"
+  bats --jobs "${_jobs}" "${REPO_ROOT}/test/unit/"
+  echo "--- Running Bats Integration Tests (jobs=${_jobs}) ---"
+  bats --jobs "${_jobs}" "${REPO_ROOT}/test/integration/"
 }
 
 # ── Kcov coverage ────────────────────────────────────────────────────────────

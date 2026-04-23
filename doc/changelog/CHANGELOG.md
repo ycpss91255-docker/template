@@ -76,6 +76,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `_warn_if_lang_rejected` helper captures the raw input and opens a
   "Language fallback" msgbox listing the valid codes
 
+### Performance
+- **`make test` no longer runs kcov** — the dev loop pays for bats +
+  shellcheck only. `make coverage` keeps the full kcov path for CI
+  and release checks. `ci.sh --ci` honors `$COVERAGE=1` to include
+  kcov when the outer `--coverage` flag is set
+- **`bats --jobs $(nproc)` parallelism** — GNU parallel runs the
+  524-test suite concurrently across files and within files. All
+  specs already use per-test `mktemp -d` dirs so there's no shared
+  filesystem state. Combined effect (cached apt):
+  before ~1m27s (serial + kcov) → now ~42s (parallel, no kcov) ≈ 2x
+  faster on the dev loop
+
 ### BREAKING
 - **Language code `zh` renamed to `zh-TW`** (BCP-47). `--lang zh`
   no longer accepted; use `--lang zh-TW` (Taiwan Traditional).
