@@ -77,15 +77,15 @@ declare -gA _TUI_MSG_EN=(
   [image.add]="Add rule"
   [image.back]="Back to main menu"
   [image.type.prompt]="Rule type"
-  [image.type.literal]="literal (use the value as-is, no path parsing)"
-  [image.type.prefix]="prefix"
-  [image.type.suffix]="suffix"
-  [image.type.basename]="@basename"
-  [image.type.default]="@default"
-  [image.type.move_up]="Move up (swap with previous rule)"
+  [image.type.string]="string    (exact image name, skip path inference)"
+  [image.type.prefix]="prefix    (strip leading <value> from dirname)"
+  [image.type.suffix]="suffix    (strip trailing <value> from any path component)"
+  [image.type.basename]="@basename (use dirname as-is, last-resort fallback)"
+  [image.type.default]="@default  (use <value> when nothing else matches)"
+  [image.type.move_up]="Move up   (swap with previous rule)"
   [image.type.move_down]="Move down (swap with next rule)"
-  [image.type.remove]="Remove (delete this rule)"
-  [image.value.prompt]=$'Rule value\n  - Empty = cancel\n  - prefix / suffix / @default: strip or fall-back value\n  - literal: exact image name (e.g. my_app)\n  - e.g. prefix:docker_ → enter: docker_'
+  [image.type.remove]="Remove    (delete this rule)"
+  [image.value.prompt]=$'Rule value\n  - Empty = cancel\n  - prefix / suffix / @default: strip or fall-back value\n  - string: exact image name (e.g. my_app)\n  - e.g. prefix:docker_ → enter: docker_'
   [build.title]="Build args"
   [build.menu]="Select an arg to edit, or Add a new one"
   [build.add]="Add build arg"
@@ -214,15 +214,15 @@ declare -gA _TUI_MSG_ZH_TW=(
   [image.add]="新增規則"
   [image.back]="回主選單"
   [image.type.prompt]="規則類型"
-  [image.type.literal]="literal（直接用此值為 image 名稱，不解析路徑）"
-  [image.type.prefix]="prefix"
-  [image.type.suffix]="suffix"
-  [image.type.basename]="@basename"
-  [image.type.default]="@default"
-  [image.type.move_up]="往上（與前一條規則交換）"
-  [image.type.move_down]="往下（與後一條規則交換）"
-  [image.type.remove]="移除（刪除此規則）"
-  [image.value.prompt]=$'規則參數\n  - 留空 = 取消\n  - prefix / suffix / @default：剝除或預設值\n  - literal：直接用做 image 名稱（例：my_app）\n  - 例：prefix:docker_ → 輸入 docker_'
+  [image.type.string]="string    （直接用此值為 image 名稱，不解析路徑）"
+  [image.type.prefix]="prefix    （從目錄名剝除前綴 <value>）"
+  [image.type.suffix]="suffix    （從路徑中任一段剝除後綴 <value>）"
+  [image.type.basename]="@basename （直接使用目錄名，最後備用）"
+  [image.type.default]="@default  （全無匹配時使用 <value>）"
+  [image.type.move_up]="往上      （與前一條規則交換）"
+  [image.type.move_down]="往下      （與後一條規則交換）"
+  [image.type.remove]="移除      （刪除此規則）"
+  [image.value.prompt]=$'規則參數\n  - 留空 = 取消\n  - prefix / suffix / @default：剝除或預設值\n  - string：直接用做 image 名稱（例：my_app）\n  - 例：prefix:docker_ → 輸入 docker_'
   [build.title]="Build args"
   [build.menu]="選擇項目編輯，或新增 build arg"
   [build.add]="新增 build arg"
@@ -351,15 +351,15 @@ declare -gA _TUI_MSG_ZH_CN=(
   [image.add]="新增规则"
   [image.back]="回主菜单"
   [image.type.prompt]="规则类型"
-  [image.type.literal]="literal（直接用此值为 image 名称，不解析路径）"
-  [image.type.prefix]="prefix"
-  [image.type.suffix]="suffix"
-  [image.type.basename]="@basename"
-  [image.type.default]="@default"
-  [image.type.move_up]="上移（与前一条规则交换）"
-  [image.type.move_down]="下移（与后一条规则交换）"
-  [image.type.remove]="移除（删除此规则）"
-  [image.value.prompt]=$'规则参数\n  - 留空 = 取消\n  - prefix / suffix / @default：剥除或默认值\n  - literal：直接作为 image 名称（例：my_app）\n  - 例：prefix:docker_ → 输入 docker_'
+  [image.type.string]="string    （直接用此值为 image 名称，不解析路径）"
+  [image.type.prefix]="prefix    （从目录名剥除前缀 <value>）"
+  [image.type.suffix]="suffix    （从路径中任一段剥除后缀 <value>）"
+  [image.type.basename]="@basename （直接使用目录名，最后备用）"
+  [image.type.default]="@default  （全无匹配时使用 <value>）"
+  [image.type.move_up]="上移      （与前一条规则交换）"
+  [image.type.move_down]="下移      （与后一条规则交换）"
+  [image.type.remove]="移除      （删除此规则）"
+  [image.value.prompt]=$'规则参数\n  - 留空 = 取消\n  - prefix / suffix / @default：剥除或默认值\n  - string：直接作为 image 名称（例：my_app）\n  - 例：prefix:docker_ → 输入 docker_'
   [build.title]="Build args"
   [build.menu]="选择项目编辑，或新增 build arg"
   [build.add]="新增 build arg"
@@ -483,15 +483,15 @@ declare -gA _TUI_MSG_JA=(
   [image.add]="ルールを追加"
   [image.back]="メインメニューへ戻る"
   [image.type.prompt]="ルール種別"
-  [image.type.literal]="literal（この値をそのまま image 名にする、パス解析なし）"
-  [image.type.prefix]="prefix"
-  [image.type.suffix]="suffix"
-  [image.type.basename]="@basename"
-  [image.type.default]="@default"
-  [image.type.move_up]="上へ（前のルールと入れ替え）"
-  [image.type.move_down]="下へ（次のルールと入れ替え）"
-  [image.type.remove]="削除（このルールを削除）"
-  [image.value.prompt]=$'ルール値\n  - 空 = キャンセル\n  - prefix / suffix / @default：除去または fallback 値\n  - literal：そのまま image 名として使用（例：my_app）\n  - 例：prefix:docker_ → docker_ と入力'
+  [image.type.string]="string    （この値をそのまま image 名にする、パス解析なし）"
+  [image.type.prefix]="prefix    （ディレクトリ名の先頭から <value> を除去）"
+  [image.type.suffix]="suffix    （パス構成要素の末尾から <value> を除去）"
+  [image.type.basename]="@basename （ディレクトリ名をそのまま使用、最終手段）"
+  [image.type.default]="@default  （他のどれにも該当しない時 <value> を使用）"
+  [image.type.move_up]="上へ      （前のルールと入れ替え）"
+  [image.type.move_down]="下へ      （次のルールと入れ替え）"
+  [image.type.remove]="削除      （このルールを削除）"
+  [image.value.prompt]=$'ルール値\n  - 空 = キャンセル\n  - prefix / suffix / @default：除去または fallback 値\n  - string：そのまま image 名として使用（例：my_app）\n  - 例：prefix:docker_ → docker_ と入力'
   [build.title]="Build args"
   [build.menu]="編集する項目を選択、または build arg を追加"
   [build.add]="build arg を追加"
@@ -833,7 +833,7 @@ _edit_image_rule() {
   local _cur_type="" _cur_value=""
   if [[ "${_cur}" == prefix:* ]]; then _cur_type="prefix"; _cur_value="${_cur#prefix:}"
   elif [[ "${_cur}" == suffix:* ]]; then _cur_type="suffix"; _cur_value="${_cur#suffix:}"
-  elif [[ "${_cur}" == literal:* ]]; then _cur_type="literal"; _cur_value="${_cur#literal:}"
+  elif [[ "${_cur}" == string:* ]]; then _cur_type="string"; _cur_value="${_cur#string:}"
   elif [[ "${_cur}" == "@basename" ]]; then _cur_type="basename"
   elif [[ "${_cur}" == @default:* ]]; then _cur_type="default"; _cur_value="${_cur#@default:}"
   fi
@@ -844,11 +844,11 @@ _edit_image_rule() {
   # nothing to remove or relocate yet. Also hide move_up when _n == 1
   # (already at top, target would be < 1).
   local -a _opts=(
-    literal   "$(_tui_msg image.type.literal)"   "$([[ "${_cur_type}" == literal  ]] && echo ON || echo off)"
-    prefix    "$(_tui_msg image.type.prefix)"    "$([[ "${_cur_type}" == prefix   ]] && echo ON || echo off)"
-    suffix    "$(_tui_msg image.type.suffix)"    "$([[ "${_cur_type}" == suffix   ]] && echo ON || echo off)"
-    basename  "$(_tui_msg image.type.basename)"  "$([[ "${_cur_type}" == basename ]] && echo ON || echo off)"
-    default   "$(_tui_msg image.type.default)"   "$([[ "${_cur_type}" == default  ]] && echo ON || echo off)"
+    string    "$(_tui_msg image.type.string)"   "$([[ "${_cur_type}" == string   ]] && echo ON || echo off)"
+    prefix    "$(_tui_msg image.type.prefix)"   "$([[ "${_cur_type}" == prefix   ]] && echo ON || echo off)"
+    suffix    "$(_tui_msg image.type.suffix)"   "$([[ "${_cur_type}" == suffix   ]] && echo ON || echo off)"
+    basename  "$(_tui_msg image.type.basename)" "$([[ "${_cur_type}" == basename ]] && echo ON || echo off)"
+    default   "$(_tui_msg image.type.default)"  "$([[ "${_cur_type}" == default  ]] && echo ON || echo off)"
   )
   if [[ -n "${_cur}" ]]; then
     (( _n > 1 )) && _opts+=(__move_up   "$(_tui_msg image.type.move_up)"   "off")
@@ -872,7 +872,7 @@ _edit_image_rule() {
       _swap_image_rule "${_n}" "$(( _n + 1 ))"
       return 0
       ;;
-    prefix|suffix|literal|default)
+    prefix|suffix|string|default)
       _value="$(_tui_inputbox "rule" "$(_tui_msg image.value.prompt)" "${_cur_value}")" \
         || return 0
       if [[ "${_type}" == default ]]; then

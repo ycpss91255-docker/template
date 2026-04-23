@@ -1040,13 +1040,13 @@ EOF
 }
 
 # ════════════════════════════════════════════════════════════════════
-# detect_image_name literal rule
+# detect_image_name string rule
 # ════════════════════════════════════════════════════════════════════
 
-@test "detect_image_name literal:<value> short-circuits path parsing" {
+@test "detect_image_name string:<value> short-circuits path parsing" {
   cat > "${TEMP_DIR}/setup.conf" <<'EOF'
 [image]
-rule_1 = literal:my_app
+rule_1 = string:my_app
 rule_2 = prefix:docker_
 rule_3 = @default:should_not_reach
 EOF
@@ -1056,10 +1056,10 @@ EOF
   assert_equal "${_result}" "my_app"
 }
 
-@test "detect_image_name literal value is still lowercased + sanitized" {
+@test "detect_image_name string value is still lowercased + sanitized" {
   cat > "${TEMP_DIR}/setup.conf" <<'EOF'
 [image]
-rule_1 = literal:My.App.Name
+rule_1 = string:My.App.Name
 EOF
   unset SETUP_CONF
   local _result
