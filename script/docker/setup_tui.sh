@@ -170,6 +170,8 @@ declare -gA _TUI_MSG_EN=(
   [err.invalid_network_name]=$'Invalid network name\n  - Expected: start with [a-zA-Z0-9]\n  - Then letters/digits/[_.-]\n  - Example: my_bridge'
   [err.invalid_capability]=$'Invalid capability name\n  - Expected: ALL_UPPERCASE with optional underscores\n  - Example: SYS_ADMIN, NET_ADMIN, ALL'
   [err.no_backend]="Neither dialog nor whiptail is installed. Install with: sudo apt install dialog"
+  [lang.invalid.title]="Language fallback"
+  [lang.invalid.body]=$'Invalid --lang value: \'%s\'\n\nFalling back to English (en).\n\nValid values:\n  en      English\n  zh-TW   Traditional Chinese (Taiwan)\n  zh-CN   Simplified Chinese\n  ja      Japanese'
   [saved]="Saved to %s. Regenerating .env + compose.yaml..."
   [action.prompt]="Choose an action"
   [action.edit]="Edit"
@@ -1503,15 +1505,40 @@ _commit_and_setup() {
 
 # ── main ─────────────────────────────────────────────────────────────────
 
+# _warn_if_lang_rejected <bad_input>
+#
+# When _sanitize_lang had to fall back to "en" because --lang was an
+# unknown value, open a TUI msgbox to tell the user. The stderr
+# warning from _sanitize_lang is useless here since dialog/whiptail's
+# curses rendering clears it before the user can read it.
+#
+# <bad_input> is the original string the user passed; empty = no-op.
+_warn_if_lang_rejected() {
+  local _bad="${1:-}"
+  [[ -z "${_bad}" ]] && return 0
+  # shellcheck disable=SC2059  # body is our own i18n template
+  _tui_msgbox "$(_tui_msg lang.invalid.title)" \
+    "$(printf "$(_tui_msg lang.invalid.body)" "${_bad}")"
+}
+
 main() {
   local _subcmd=""
+  # Remember the raw --lang value if sanitize rejects it, so we can
+  # surface the warning INSIDE the TUI (the stderr message from
+  # _sanitize_lang gets hidden by curses once dialog takes over).
+  local _bad_lang_input=""
 
   while [[ $# -gt 0 ]]; do
     case "${1}" in
       -h|--help) usage ;;
       --lang)
         _LANG="${2:?"--lang requires a value"}"
-        _sanitize_lang _LANG "tui"
+        local _lang_before="${_LANG}"
+        # Silence sanitize's stderr — the TUI msgbox below replaces it.
+        _sanitize_lang _LANG "tui" 2>/dev/null
+        if [[ "${_LANG}" != "${_lang_before}" ]]; then
+          _bad_lang_input="${_lang_before}"
+        fi
         shift 2
         ;;
       image|build|network|deploy|gui|volumes|devices|resources|environment|tmpfs|ports|security)
@@ -1531,6 +1558,9 @@ main() {
     printf "[tui] %s\n" "$(_tui_msg err.no_backend)" >&2
     exit 2
   fi
+
+  # Surface the --lang rejection before the main menu opens.
+  _warn_if_lang_rejected "${_bad_lang_input}"
 
   local _repo_conf="${FILE_PATH}/setup.conf"
   local _tpl_conf="${_TUI_TPL_DIR}/setup.conf"

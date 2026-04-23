@@ -69,6 +69,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   statement. BuildKit auto-fills on amd64 / arm64 hosts; falls back
   to amd64 binaries on legacy builders. Rejects unsupported arches
   loudly instead of silently grabbing a wrong-arch binary
+- **`setup_tui.sh --lang <invalid>` surfaces a TUI msgbox** before
+  the main menu opens. Previously the `_sanitize_lang` stderr warning
+  scrolled away as soon as dialog/whiptail cleared the screen; the
+  user saw a silently-English TUI with no hint why. New
+  `_warn_if_lang_rejected` helper captures the raw input and opens a
+  "Language fallback" msgbox listing the valid codes
 
 ### BREAKING
 - **Language code `zh` renamed to `zh-TW`** (BCP-47). `--lang zh`

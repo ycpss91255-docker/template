@@ -224,6 +224,45 @@ teardown() {
 }
 
 # ════════════════════════════════════════════════════════════════════
+# _warn_if_lang_rejected — TUI msgbox when --lang fell back to "en"
+# ════════════════════════════════════════════════════════════════════
+#
+# The stderr warning from _sanitize_lang gets eaten by curses once
+# dialog/whiptail takes over the terminal. main() captures the bad
+# input and hands it to this helper, which opens a visible msgbox
+# before entering the main menu.
+#
+# Source setup_tui.sh directly (not via `bash -c`) because kcov's
+# injected tracking code trips `set -u` on BASH_SOURCE when a nested
+# bash -c sources a file that enables `set -euo pipefail`.
+
+@test "_warn_if_lang_rejected opens a msgbox when given a bad input" {
+  # shellcheck disable=SC1091
+  source /source/script/docker/setup_tui.sh
+  local _log="${TEMP_DIR}/msgbox.log"
+  _tui_msgbox() {
+    printf 'title=%s\nbody=%s\n---\n' "$1" "$2" > "${_log}"
+  }
+  _warn_if_lang_rejected notalang
+  run cat "${_log}"
+  assert_success
+  assert_output --partial "title=Language fallback"
+  assert_output --partial "Invalid --lang value: 'notalang'"
+  assert_output --partial "Valid values:"
+}
+
+@test "_warn_if_lang_rejected is a no-op on empty input" {
+  # shellcheck disable=SC1091
+  source /source/script/docker/setup_tui.sh
+  local _log="${TEMP_DIR}/msgbox.log"
+  _tui_msgbox() {
+    printf 'CALLED\n' >> "${_log}"
+  }
+  _warn_if_lang_rejected ''
+  assert [ ! -f "${_log}" ]
+}
+
+# ════════════════════════════════════════════════════════════════════
 # _validate_gpu_count
 # ════════════════════════════════════════════════════════════════════
 
