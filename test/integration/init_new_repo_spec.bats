@@ -207,7 +207,7 @@ teardown() {
 }
 
 # ════════════════════════════════════════════════════════════════════
-# init.sh --gen-conf / --gen-image-conf (alias)
+# init.sh --gen-conf
 # ════════════════════════════════════════════════════════════════════
 
 @test "init.sh --gen-conf copies setup.conf to repo root" {
@@ -220,15 +220,6 @@ teardown() {
   # Sanity: copied file contains the full section schema
   run grep -E '^\[(image|build|deploy|gui|network|volumes)\]' "${REPO_DIR}/setup.conf"
   assert_success
-}
-
-@test "init.sh --gen-image-conf is back-compat alias for --gen-conf" {
-  # init.sh already auto-creates setup.conf; remove it first so we can
-  # exercise the alias's copy-from-template code path.
-  bash template/init.sh
-  rm -f "${REPO_DIR}/setup.conf"
-  bash template/init.sh --gen-image-conf
-  assert [ -f "${REPO_DIR}/setup.conf" ]
 }
 
 @test "init.sh --gen-conf refuses to overwrite existing setup.conf" {

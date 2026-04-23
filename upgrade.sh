@@ -168,23 +168,22 @@ _warn_config_drift() {
 
 _usage() {
   cat >&2 <<'EOF'
-Usage: ./template/upgrade.sh [VERSION|--check|--gen-image-conf]
+Usage: ./template/upgrade.sh [VERSION|--check|--gen-conf]
 
 Upgrade template subtree to the latest (or specified) version.
 
 Arguments:
-  VERSION            Target version (e.g. v0.5.0). Defaults to latest tag.
-  --check            Check if an update is available (no changes made)
-  --gen-image-conf   Copy template's image_name.conf to repo root for
-                     per-repo IMAGE_NAME detection customization
-                     (delegates to init.sh --gen-image-conf)
-  -h, --help         Show this help
+  VERSION       Target version (e.g. v0.5.0). Defaults to latest tag.
+  --check       Check if an update is available (no changes made)
+  --gen-conf    Copy template/setup.conf to repo root for per-repo
+                configuration overrides (delegates to init.sh --gen-conf)
+  -h, --help    Show this help
 
 Examples:
-  ./template/upgrade.sh                   # upgrade to latest
-  ./template/upgrade.sh v0.5.0            # upgrade to specific version
-  ./template/upgrade.sh --check           # check only
-  ./template/upgrade.sh --gen-image-conf  # copy image_name.conf to repo root
+  ./template/upgrade.sh               # upgrade to latest
+  ./template/upgrade.sh v0.5.0        # upgrade to specific version
+  ./template/upgrade.sh --check       # check only
+  ./template/upgrade.sh --gen-conf    # copy setup.conf to repo root
 EOF
   exit 0
 }
@@ -200,7 +199,7 @@ main() {
 
   case "${1:-}" in
     --check) _check ;;
-    --gen-image-conf) ./template/init.sh --gen-image-conf ;;
+    --gen-conf) ./template/init.sh --gen-conf ;;
     v*)
       _upgrade "$1"
       ;;

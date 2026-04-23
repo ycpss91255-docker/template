@@ -278,9 +278,6 @@ _gen_setup_conf() {
   _log "Edit it to customize runtime settings for this repo."
 }
 
-# Back-compat alias (older docs/scripts may still reference --gen-image-conf)
-_gen_image_conf() { _gen_setup_conf; }
-
 # ── Trigger setup.sh to materialize .env + compose.yaml ─────────────────────
 
 _call_setup() {
@@ -302,7 +299,7 @@ _error() { printf "[init] ERROR: %s\n" "$*" >&2; exit 1; }
 main() {
   if [[ "${1:-}" =~ ^(-h|--help)$ ]]; then
     cat >&2 <<'EOF'
-Usage: ./template/init.sh [--gen-conf | --gen-image-conf]
+Usage: ./template/init.sh [--gen-conf]
 
 Initialize a repo with template. Auto-detects:
   - Has Dockerfile → create symlinks, then run setup.sh
@@ -315,7 +312,6 @@ Options:
                      user can override any section (image / build / deploy /
                      gui / network / volumes). Refuses to overwrite an
                      existing per-repo setup.conf.
-  --gen-image-conf   Alias for --gen-conf (back-compat).
 
 Run from the repo root after:
   git subtree add --prefix=template \
@@ -326,7 +322,7 @@ EOF
 
   cd "${REPO_ROOT}"
 
-  if [[ "${1:-}" =~ ^--gen-(conf|image-conf)$ ]]; then
+  if [[ "${1:-}" == "--gen-conf" ]]; then
     _gen_setup_conf
     return 0
   fi

@@ -572,20 +572,20 @@ EOF
   assert_success
 }
 
-@test "upgrade.sh supports --gen-image-conf flag" {
-  run grep -E '\-\-gen-image-conf' /source/upgrade.sh
+@test "upgrade.sh supports --gen-conf flag" {
+  run grep -E '\-\-gen-conf' /source/upgrade.sh
   assert_success
 }
 
-@test "upgrade.sh --gen-image-conf delegates to init.sh --gen-image-conf" {
-  run grep -E 'init\.sh.*--gen-image-conf' /source/upgrade.sh
+@test "upgrade.sh --gen-conf delegates to init.sh --gen-conf" {
+  run grep -E 'init\.sh.*--gen-conf' /source/upgrade.sh
   assert_success
 }
 
-@test "upgrade.sh --help mentions --gen-image-conf" {
+@test "upgrade.sh --help mentions --gen-conf" {
   run bash -c "bash /source/upgrade.sh --help 2>&1"
   assert_success
-  assert_output --partial "--gen-image-conf"
+  assert_output --partial "--gen-conf"
 }
 
 @test "upgrade.sh updates main.yaml @tag without clobbering release-worker.yaml" {

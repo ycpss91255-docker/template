@@ -612,6 +612,9 @@ YAML
       while IFS= read -r _ub; do
         [[ -z "${_ub}" ]] && continue
         _k="${_ub%%=*}"
+        # Emit literal compose substitution `${KEY}` into compose.yaml;
+        # the ${} is consumed by docker compose at runtime, not bash.
+        # shellcheck disable=SC2016
         printf '        %s: ${%s}\n' "${_k}" "${_k}"
       done <<< "${_user_build_args_str}"
     }

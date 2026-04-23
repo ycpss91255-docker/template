@@ -36,6 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `_TUI_LANG_UPPER` initialised at source time so sourcing `tui.sh`
   and calling a section editor directly (tests, REPL) no longer
   crashes on unbound variable under `set -u`
+- **CLI consistency**: `exec.sh` / `stop.sh` now accept `--lang LANG`
+  (matches `build.sh` / `run.sh`); `stop.sh` gains `-a` short flag
+  for `--all` (matches common CLI patterns). Unknown lang values
+  warn and fall back to `en` via `_sanitize_lang`
+- **`--gen-image-conf` alias removed** from `init.sh` / `upgrade.sh`;
+  the `--gen-conf` name is the only spelling. The alias was a
+  rename-artifact and not documented outside in-tree help
 
 ### BREAKING
 - **Language code `zh` renamed to `zh-TW`** (BCP-47). `--lang zh`

@@ -1,6 +1,6 @@
 # TEST.md
 
-Template self-tests: **476 tests** total (448 unit + 28 integration).
+Template self-tests: **475 tests** total (448 unit + 27 integration).
 
 ## Test Files
 
@@ -227,9 +227,9 @@ conditional GPU deploy block + GUI env/volumes + extra volumes from
 | `upgrade.sh does not write .template_version` | No legacy write |
 | `upgrade.sh runs init.sh after subtree pull` | Sync symlinks |
 | `upgrade.sh cleans up legacy .template_version` | Legacy cleanup |
-| `upgrade.sh supports --gen-image-conf flag` | Flag exists |
-| `upgrade.sh --gen-image-conf delegates to init.sh --gen-image-conf` | Delegation |
-| `upgrade.sh --help mentions --gen-image-conf` | Help text |
+| `upgrade.sh supports --gen-conf flag` | Flag exists |
+| `upgrade.sh --gen-conf delegates to init.sh --gen-conf` | Delegation |
+| `upgrade.sh --help mentions --gen-conf` | Help text |
 | `upgrade.sh updates main.yaml @tag without clobbering release-worker.yaml` | sed regression |
 | `run.sh contains XDG_SESSION_TYPE check` | X11/Wayland branch |
 | `run.sh contains xhost +SI:localuser for wayland` | Wayland xhost |
@@ -391,7 +391,7 @@ Exercises the runtime assertion helpers shipped in
 | `main copies tmux.conf to config directory` | Config copy |
 | `script runs entry_point when executed directly` | Direct-run guard |
 
-### test/integration/init_new_repo_spec.bats (26)
+### test/integration/init_new_repo_spec.bats (25)
 
 End-to-end verification that `init.sh` produces a complete repo skeleton in
 an empty directory. **Level 1** (file generation only, no Docker). The
@@ -421,7 +421,6 @@ which has access to a Docker daemon on the host runner.
 | `new repo: exec.sh -h works against the generated symlink` | smoke exec.sh |
 | `new repo: stop.sh -h works against the generated symlink` | smoke stop.sh |
 | `init.sh --gen-conf copies setup.conf to repo root` | setup.conf gen |
-| `init.sh --gen-image-conf is back-compat alias for --gen-conf` | back-compat alias |
 | `init.sh --gen-conf refuses to overwrite existing setup.conf` | overwrite safety |
 | `new repo: .gitignore contains compose.yaml (derived artifact)` | gitignore compose.yaml |
 | `new repo: .gitignore contains .env (derived artifact)` | gitignore .env |
