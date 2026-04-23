@@ -1,15 +1,15 @@
 # TEST.md
 
-Template self-tests: **475 tests** total (448 unit + 27 integration).
+Template self-tests: **510 tests** total (477 unit + 33 integration).
 
 ## Test Files
 
-### test/unit/lib_spec.bats (15)
+### test/unit/lib_spec.bats (25)
 
 | Test | Description |
 |------|-------------|
 | `_lib.sh sets _LANG to 'en' when LANG is unset` | Default language |
-| `_lib.sh sets _LANG to 'zh' for zh_TW.UTF-8` | Traditional Chinese |
+| `_lib.sh sets _LANG to 'zh-TW' for zh_TW.UTF-8` | Traditional Chinese |
 | `_lib.sh sets _LANG to 'zh-CN' for zh_CN.UTF-8` | Simplified Chinese |
 | `_lib.sh sets _LANG to 'zh-CN' for zh_SG (Singapore)` | Singapore variant |
 | `_lib.sh sets _LANG to 'ja' for ja_JP.UTF-8` | Japanese |
@@ -23,6 +23,16 @@ Template self-tests: **475 tests** total (448 unit + 27 integration).
 | `_compose with DRY_RUN=true prints command instead of running` | DRY_RUN path |
 | `_compose without DRY_RUN tries to invoke docker compose (sanity)` | Real-call branch |
 | `_compose_project pre-fills -p / -f / --env-file from PROJECT_NAME and FILE_PATH` | Project wrapper |
+| `_sanitize_lang accepts en / zh-TW / zh-CN / ja unchanged` | Lang validator pass-through |
+| `_sanitize_lang warns and falls back to 'en' for unsupported values` | Unknown lang fallback |
+| `_sanitize_lang warns for the old bare 'zh' code (post zh→zh-TW rename)` | Legacy lang rejection |
+| `_dump_conf_section extracts keys from the named section` | INI section dump |
+| `_dump_conf_section stops at the next section header` | Section boundary |
+| `_dump_conf_section returns silent empty for missing file` | Missing file |
+| `_dump_conf_section returns silent empty for unknown section` | Missing section |
+| `_print_config_summary prints files, identity, all populated sections, resolved` | Full config dump |
+| `_print_config_summary hides sections that are empty in setup.conf` | Empty-section skip |
+| `_print_config_summary warns when setup.conf is missing` | Missing-conf hint |
 
 ### test/unit/setup_spec.bats (85)
 
@@ -391,7 +401,7 @@ Exercises the runtime assertion helpers shipped in
 | `main copies tmux.conf to config directory` | Config copy |
 | `script runs entry_point when executed directly` | Direct-run guard |
 
-### test/integration/init_new_repo_spec.bats (25)
+### test/integration/init_new_repo_spec.bats (33)
 
 End-to-end verification that `init.sh` produces a complete repo skeleton in
 an empty directory. **Level 1** (file generation only, no Docker). The
@@ -416,6 +426,8 @@ which has access to a Docker daemon on the host runner.
 | `new repo: run.sh / exec.sh / stop.sh / Makefile symlinks correct` | symlink set |
 | `new repo: template/VERSION exists (no legacy .template_version)` | version file |
 | `new repo: re-running init.sh on the result is idempotent` | idempotent |
+| `new repo: init.sh creates setup_tui.sh symlink (not legacy tui.sh)` | post-rename symlink |
+| `new repo: init.sh removes stale tui.sh symlink from earlier versions` | upgrade cleanup |
 | `new repo: build.sh -h works against the generated symlink` | smoke build.sh |
 | `new repo: run.sh -h works against the generated symlink` | smoke run.sh |
 | `new repo: exec.sh -h works against the generated symlink` | smoke exec.sh |

@@ -43,6 +43,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`--gen-image-conf` alias removed** from `init.sh` / `upgrade.sh`;
   the `--gen-conf` name is the only spelling. The alias was a
   rename-artifact and not documented outside in-tree help
+- **`tui.sh` → `setup_tui.sh`**: pairs with `setup.sh` and makes the
+  "interactive editor for setup.conf" relationship explicit.
+  `init.sh` now creates `setup_tui.sh` and removes any stale `tui.sh`
+  symlink left behind by pre-rename installs
+- **`_print_config_summary` full dump**: `build.sh` / `run.sh` now
+  print every populated `setup.conf` section (image / build / deploy /
+  gui / network / security / resources / environment / tmpfs /
+  devices / volumes) alongside identity, file paths, and the resolved
+  GPU/GUI/TZ flags — so users see every value this run consumes
+  without having to diff `.env` or run `docker compose config`
 
 ### BREAKING
 - **Language code `zh` renamed to `zh-TW`** (BCP-47). `--lang zh`

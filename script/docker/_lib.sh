@@ -74,44 +74,90 @@ _compute_project_name() {
   PROJECT_NAME="${DOCKER_HUB_USER}-${IMAGE_NAME}${INSTANCE_SUFFIX}"
 }
 
+# _dump_conf_section <file> <section>
+#
+# Emit key=value lines from the named INI section of <file>, skipping
+# blank lines and comments. Stops at the next section header or EOF.
+# Silent on missing file or missing section.
+_dump_conf_section() {
+  local _file="$1" _sec="$2"
+  [[ -f "${_file}" ]] || return 0
+  awk -v sec="[${_sec}]" '
+    $0 == sec { in_sec=1; next }
+    /^\[/ && in_sec { in_sec=0 }
+    in_sec && /^[[:space:]]*#/ { next }
+    in_sec && /^[[:space:]]*$/ { next }
+    in_sec { print }
+  ' "${_file}"
+}
+
 # _print_config_summary <tag>
 #
-# Print a one-screen snapshot of the resolved runtime config right
-# before the main action (docker build / up / exec). Goal: tell a
-# first-time user which files control this run, what the effective
-# image name / network / GPU / GUI / TZ settings are, and how to
-# change them — so they don't have to hunt through setup.sh or go
-# read `docker compose config`.
+# Print the resolved runtime config right before the main action
+# (docker build / up). Goal: first-time users can see every value
+# this run will consume — file paths, .env-derived identity/hardware,
+# and the complete [image]/[build]/[deploy]/[gui]/[network]/
+# [security]/[resources]/[environment]/[tmpfs]/[devices]/[volumes]
+# section contents from setup.conf — without having to diff `.env`
+# or run `docker compose config`.
 #
-# Expects FILE_PATH + the standard .env variables (USER_NAME,
-# DOCKER_HUB_USER, IMAGE_NAME, NETWORK_MODE, IPC_MODE, GPU_ENABLED,
-# SETUP_GUI_DETECTED, TZ, APT_MIRROR_UBUNTU) already in scope — caller
-# must `_load_env` first. Missing values are shown as "-".
+# Expects FILE_PATH + standard .env variables already in scope
+# (caller must `_load_env` first). Missing values render as "-".
 #
 # Args:
 #   $1: short tag prefix for log lines (e.g. "build", "run")
 _print_config_summary() {
   local _tag="${1:?_print_config_summary requires a log tag}"
   local _fp="${FILE_PATH:-.}"
+  local _conf="${_fp}/setup.conf"
   local _line="────────────────────────────────────────────────────────────"
-  local _tz="${TZ:-Asia/Taipei (Dockerfile default)}"
-  local _apt_u="${APT_MIRROR_UBUNTU:--}"
-  local _gpu="${GPU_ENABLED:--}"
-  local _gui="${SETUP_GUI_DETECTED:--}"
-  local _net="${NETWORK_MODE:--}"
-  local _ipc="${IPC_MODE:--}"
   local _img="${DOCKER_HUB_USER:-local}/${IMAGE_NAME:-unknown}"
   local _proj="${PROJECT_NAME:-${DOCKER_HUB_USER:-local}-${IMAGE_NAME:-unknown}}"
+
   printf "[%s] %s\n" "${_tag}" "${_line}"
-  printf "[%s] Configuration\n" "${_tag}"
-  printf "[%s]   setup.conf   : %s\n"   "${_tag}" "${_fp}/setup.conf"
+  printf "[%s] Files\n" "${_tag}"
+  printf "[%s]   setup.conf   : %s\n"   "${_tag}" "${_conf}"
   printf "[%s]   .env         : %s\n"   "${_tag}" "${_fp}/.env"
   printf "[%s]   compose.yaml : %s\n"   "${_tag}" "${_fp}/compose.yaml"
-  printf "[%s]   image / tag  : %s\n"   "${_tag}" "${_img}"
-  printf "[%s]   project name : %s\n"   "${_tag}" "${_proj}"
-  printf "[%s]   GPU=%s  GUI=%s  network=%s  ipc=%s\n" \
-    "${_tag}" "${_gpu}" "${_gui}" "${_net}" "${_ipc}"
-  printf "[%s]   TZ=%s  APT=%s\n" "${_tag}" "${_tz}" "${_apt_u}"
+  printf "[%s] Identity\n" "${_tag}"
+  printf "[%s]   user         : %s (uid=%s)  group=%s (gid=%s)\n" "${_tag}" \
+    "${USER_NAME:--}" "${USER_UID:--}" "${USER_GROUP:--}" "${USER_GID:--}"
+  printf "[%s]   hardware     : %s\n" "${_tag}" "${HARDWARE:--}"
+  printf "[%s]   image / tag  : %s\n" "${_tag}" "${_img}"
+  printf "[%s]   project      : %s\n" "${_tag}" "${_proj}"
+  printf "[%s]   workspace    : %s\n" "${_tag}" "${WS_PATH:--}"
+
+  # setup.conf section-by-section dump. Each section prints only if
+  # non-empty to stay readable. Order matches the TUI main menu so
+  # the printout and setup_tui.sh layout mirror each other.
+  if [[ -f "${_conf}" ]]; then
+    printf "[%s] setup.conf\n" "${_tag}"
+    local _sec _content _l
+    for _sec in image build deploy gui network security resources \
+                environment tmpfs devices volumes; do
+      _content="$(_dump_conf_section "${_conf}" "${_sec}")"
+      [[ -z "${_content}" ]] && continue
+      printf "[%s]   [%s]\n" "${_tag}" "${_sec}"
+      while IFS= read -r _l; do
+        printf "[%s]     %s\n" "${_tag}" "${_l}"
+      done <<< "${_content}"
+    done
+  else
+    printf "[%s]   (setup.conf not found — run ./setup_tui.sh or ./%s.sh --setup)\n" \
+      "${_tag}" "${_tag}"
+  fi
+
+  # Resolved post-merge flags that the user can't infer from setup.conf
+  # alone (GPU/GUI depend on host detection in addition to mode=auto).
+  printf "[%s] Resolved\n" "${_tag}"
+  printf "[%s]   GPU enabled : %s  count=%s  caps=%s\n" "${_tag}" \
+    "${GPU_ENABLED:--}" "${GPU_COUNT:--}" "${GPU_CAPABILITIES:--}"
+  printf "[%s]   GUI enabled : %s\n" "${_tag}" "${SETUP_GUI_DETECTED:--}"
+  printf "[%s]   network     : %s  ipc=%s  privileged=%s\n" "${_tag}" \
+    "${NETWORK_MODE:--}" "${IPC_MODE:--}" "${PRIVILEGED:--}"
+  printf "[%s]   TZ=%s  apt_ubuntu=%s  apt_debian=%s\n" "${_tag}" \
+    "${TZ:--}" "${APT_MIRROR_UBUNTU:--}" "${APT_MIRROR_DEBIAN:--}"
+
   printf "[%s] Customize: ./setup_tui.sh  |  ./%s.sh --setup  |  edit setup.conf\n" \
     "${_tag}" "${_tag}"
   printf "[%s] %s\n" "${_tag}" "${_line}"
