@@ -1013,10 +1013,13 @@ EOF
 # Workspace writeback (first-time / user edit / opt-out)
 # ════════════════════════════════════════════════════════════════════
 
-@test "workspace first-time: creates <repo>/setup.conf + writes mount_1" {
+@test "workspace first-time: writes \${WS_PATH} variable form (portable)" {
+  # Regression (v0.9.4): writeback used to bake the absolute host path
+  # into setup.conf. Committing that file broke other machines whose
+  # filesystem layout differed. Now we write the \${WS_PATH} variable
+  # form so docker-compose resolves it per-machine from .env.
   local _repo="${TEMP_DIR}/repo"
   mkdir -p "${_repo}"
-  # Fresh: no setup.conf in repo
   run bash -c "
     source /source/script/docker/setup.sh
     main --base-path '${_repo}' 2>&1
@@ -1024,19 +1027,18 @@ EOF
   assert_success
   assert [ -f "${_repo}/setup.conf" ]
   run grep '^mount_1' "${_repo}/setup.conf"
-  [[ "${output}" == *"/home/\${USER_NAME}/work"* ]]
+  assert_output --partial '${WS_PATH}:/home/${USER_NAME}/work'
 }
 
-@test "workspace second-run: respects user-edited mount_1" {
+@test "workspace second-run: \${WS_PATH} form re-detects per machine" {
+  # Round-trip: first-time writes \${WS_PATH} form → second run reads
+  # setup.conf, sees the variable reference, and re-runs detect_ws_path
+  # so WS_PATH in .env reflects THIS machine (not the one that first
+  # committed the file).
   local _repo="${TEMP_DIR}/repo"
   mkdir -p "${_repo}"
-  # First run creates setup.conf with detected mount_1
   bash -c "source /source/script/docker/setup.sh; main --base-path '${_repo}'" \
     >/dev/null 2>&1
-  # User edits mount_1 to a custom path
-  sed -i 's|^mount_1.*|mount_1 = /custom/ws:/home/${USER_NAME}/work|' \
-    "${_repo}/setup.conf"
-  # Second run should read the user value, not re-detect
   run bash -c "
     source /source/script/docker/setup.sh
     main --base-path '${_repo}' 2>&1
@@ -1044,8 +1046,60 @@ EOF
     grep '^mount_1' '${_repo}/setup.conf'
   "
   assert_success
-  assert_output --partial "WS_PATH=/custom/ws"
-  assert_output --partial "mount_1 = /custom/ws:"
+  # WS_PATH is a non-empty absolute path — exact value depends on the
+  # sandbox, but it must not be the literal variable string.
+  refute_output --partial 'WS_PATH=${WS_PATH}'
+  assert_output --regexp 'WS_PATH=/[^[:space:]]+'
+  # mount_1 stays as the portable variable form.
+  assert_output --partial 'mount_1 = ${WS_PATH}:/home/${USER_NAME}/work'
+}
+
+@test "workspace second-run: respects user-pinned absolute path that exists" {
+  local _repo="${TEMP_DIR}/repo"
+  local _pin="${TEMP_DIR}/custom_ws"
+  mkdir -p "${_repo}" "${_pin}"
+  bash -c "source /source/script/docker/setup.sh; main --base-path '${_repo}'" \
+    >/dev/null 2>&1
+  # User pins mount_1 to an existing local path.
+  sed -i "s|^mount_1.*|mount_1 = ${_pin}:/home/\${USER_NAME}/work|" \
+    "${_repo}/setup.conf"
+  run bash -c "
+    source /source/script/docker/setup.sh
+    main --base-path '${_repo}' 2>&1
+    grep '^WS_PATH=' '${_repo}/.env'
+    grep '^mount_1' '${_repo}/setup.conf'
+  "
+  assert_success
+  assert_output --partial "WS_PATH=${_pin}"
+  assert_output --partial "mount_1 = ${_pin}:"
+}
+
+@test "workspace second-run: stale absolute path (nonexistent) warns + auto-migrates to \${WS_PATH}" {
+  # Regression (v0.9.4): a repo cloned from github with mount_1 baked
+  # as another machine's absolute path (e.g. /home/alice/work/ws) must
+  # not try to mount that directory on /home/bob. setup.sh detects the
+  # stale host path (absolute, non-existent), warns, and rewrites
+  # mount_1 to the portable \${WS_PATH} form.
+  local _repo="${TEMP_DIR}/repo"
+  mkdir -p "${_repo}"
+  bash -c "source /source/script/docker/setup.sh; main --base-path '${_repo}'" \
+    >/dev/null 2>&1
+  # Plant a stale absolute path that does not exist on this machine.
+  sed -i 's|^mount_1.*|mount_1 = /nonexistent/stale/ws:/home/${USER_NAME}/work|' \
+    "${_repo}/setup.conf"
+  run bash -c "
+    source /source/script/docker/setup.sh
+    main --base-path '${_repo}' 2>&1
+    grep '^mount_1' '${_repo}/setup.conf'
+    grep '^WS_PATH=' '${_repo}/.env'
+  "
+  assert_success
+  assert_output --partial "WARNING"
+  assert_output --partial "/nonexistent/stale/ws"
+  # mount_1 is rewritten back to the portable form.
+  assert_output --partial 'mount_1 = ${WS_PATH}:/home/${USER_NAME}/work'
+  # WS_PATH in .env is a local path, not the stale literal.
+  refute_output --partial "WS_PATH=/nonexistent/stale/ws"
 }
 
 @test "workspace opt-out: cleared mount_1 means no workspace mount in compose" {

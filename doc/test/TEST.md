@@ -1,6 +1,6 @@
 # TEST.md
 
-Template self-tests: **527 tests** total (494 unit + 33 integration).
+Template self-tests: **529 tests** total (496 unit + 33 integration).
 
 ## Test Files
 
@@ -34,7 +34,7 @@ Template self-tests: **527 tests** total (494 unit + 33 integration).
 | `_print_config_summary hides sections that are empty in setup.conf` | Empty-section skip |
 | `_print_config_summary warns when setup.conf is missing` | Missing-conf hint |
 
-### test/unit/setup_spec.bats (85)
+### test/unit/setup_spec.bats (95)
 
 Covers core detection (user/hardware/docker/GPU/GUI), the INI parser
 (`_parse_ini_section`), setup.conf section merging (`_load_setup_conf`
