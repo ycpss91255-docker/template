@@ -86,10 +86,11 @@ declare -gA _TUI_MSG_EN=(
   [image.type.move_down]="Move down (swap with next rule)"
   [image.type.remove]="Remove (delete this rule)"
   [image.value.prompt]=$'Rule value\n  - Empty = cancel\n  - prefix / suffix / @default: strip or fall-back value\n  - literal: exact image name (e.g. my_app)\n  - e.g. prefix:docker_ → enter: docker_'
-  [build.title]="Build"
-  [build.ubuntu.prompt]=$'Ubuntu APT mirror host\n  - Empty = Dockerfile / compose default (archive.ubuntu.com)\n  - Example (Taiwan): tw.archive.ubuntu.com'
-  [build.debian.prompt]=$'Debian APT mirror host\n  - Empty = Dockerfile / compose default (deb.debian.org)\n  - Example (Taiwan): mirror.twds.com.tw'
-  [build.tz.prompt]=$'Container timezone (IANA name)\n  - Empty = Dockerfile default (Asia/Taipei)\n  - Examples: UTC, Asia/Tokyo, America/Los_Angeles'
+  [build.title]="Build args"
+  [build.menu]="Select an arg to edit, or Add a new one"
+  [build.add]="Add build arg"
+  [build.back]="Back to main menu"
+  [build.arg.prompt]=$'Build arg (Dockerfile ARG override)\n  - Format: KEY=VALUE (KEY must match [A-Z_][A-Z0-9_]*)\n  - Empty = delete this entry\n  - Known keys (Dockerfile provides defaults when left empty here):\n      APT_MIRROR_UBUNTU   default archive.ubuntu.com\n      APT_MIRROR_DEBIAN   default deb.debian.org\n      TZ                  default Asia/Taipei\n  - User-added: any KEY that your Dockerfile declares with `ARG KEY`\n  - Example: APT_MIRROR_UBUNTU=tw.archive.ubuntu.com\n  - Example: PYTHON_VERSION=3.12'
   [network.title]="Network"
   [network.mode.prompt]="Network mode"
   [network.mode.host]="host (share host network stack)"
@@ -222,10 +223,11 @@ declare -gA _TUI_MSG_ZH_TW=(
   [image.type.move_down]="往下（與後一條規則交換）"
   [image.type.remove]="移除（刪除此規則）"
   [image.value.prompt]=$'規則參數\n  - 留空 = 取消\n  - prefix / suffix / @default：剝除或預設值\n  - literal：直接用做 image 名稱（例：my_app）\n  - 例：prefix:docker_ → 輸入 docker_'
-  [build.title]="Build"
-  [build.ubuntu.prompt]=$'Ubuntu APT 鏡像主機\n  - 留空 = Dockerfile / compose 預設（archive.ubuntu.com）\n  - 範例（台灣）：tw.archive.ubuntu.com'
-  [build.debian.prompt]=$'Debian APT 鏡像主機\n  - 留空 = Dockerfile / compose 預設（deb.debian.org）\n  - 範例（台灣）：mirror.twds.com.tw'
-  [build.tz.prompt]=$'容器時區（IANA 名稱）\n  - 留空 = Dockerfile 預設（Asia/Taipei）\n  - 範例：UTC、Asia/Tokyo、America/Los_Angeles'
+  [build.title]="Build args"
+  [build.menu]="選擇項目編輯，或新增 build arg"
+  [build.add]="新增 build arg"
+  [build.back]="回主選單"
+  [build.arg.prompt]=$'Build arg（Dockerfile ARG 覆蓋）\n  - 格式：KEY=VALUE（KEY 需符合 [A-Z_][A-Z0-9_]*）\n  - 留空 = 刪除此項目\n  - 已知 key（留空時 Dockerfile 預設生效）：\n      APT_MIRROR_UBUNTU   預設 archive.ubuntu.com\n      APT_MIRROR_DEBIAN   預設 deb.debian.org\n      TZ                  預設 Asia/Taipei\n  - 自訂：任何 Dockerfile 中 `ARG KEY` 宣告過的 key\n  - 範例：APT_MIRROR_UBUNTU=tw.archive.ubuntu.com\n  - 範例：PYTHON_VERSION=3.12'
   [network.title]="Network"
   [network.mode.prompt]="網路模式"
   [network.mode.host]="host（共用主機網路堆疊）"
@@ -358,10 +360,11 @@ declare -gA _TUI_MSG_ZH_CN=(
   [image.type.move_down]="下移（与后一条规则交换）"
   [image.type.remove]="移除（删除此规则）"
   [image.value.prompt]=$'规则参数\n  - 留空 = 取消\n  - prefix / suffix / @default：剥除或默认值\n  - literal：直接作为 image 名称（例：my_app）\n  - 例：prefix:docker_ → 输入 docker_'
-  [build.title]="Build"
-  [build.ubuntu.prompt]=$'Ubuntu APT 镜像主机\n  - 留空 = Dockerfile / compose 默认（archive.ubuntu.com）\n  - 示例（台湾）：tw.archive.ubuntu.com'
-  [build.debian.prompt]=$'Debian APT 镜像主机\n  - 留空 = Dockerfile / compose 默认（deb.debian.org）\n  - 示例（台湾）：mirror.twds.com.tw'
-  [build.tz.prompt]=$'容器时区（IANA 名称）\n  - 留空 = Dockerfile 默认（Asia/Taipei）\n  - 示例：UTC、Asia/Tokyo、America/Los_Angeles'
+  [build.title]="Build args"
+  [build.menu]="选择项目编辑，或新增 build arg"
+  [build.add]="新增 build arg"
+  [build.back]="回主菜单"
+  [build.arg.prompt]=$'Build arg（Dockerfile ARG 覆盖）\n  - 格式：KEY=VALUE（KEY 需符合 [A-Z_][A-Z0-9_]*）\n  - 留空 = 删除此项目\n  - 已知 key（留空时 Dockerfile 默认生效）：\n      APT_MIRROR_UBUNTU   默认 archive.ubuntu.com\n      APT_MIRROR_DEBIAN   默认 deb.debian.org\n      TZ                  默认 Asia/Taipei\n  - 自定：任何 Dockerfile 中 `ARG KEY` 声明过的 key\n  - 示例：APT_MIRROR_UBUNTU=tw.archive.ubuntu.com\n  - 示例：PYTHON_VERSION=3.12'
   [network.title]="Network"
   [network.mode.prompt]="网络模式"
   [network.mode.host]="host（共用主机网络栈）"
@@ -489,10 +492,11 @@ declare -gA _TUI_MSG_JA=(
   [image.type.move_down]="下へ（次のルールと入れ替え）"
   [image.type.remove]="削除（このルールを削除）"
   [image.value.prompt]=$'ルール値\n  - 空 = キャンセル\n  - prefix / suffix / @default：除去または fallback 値\n  - literal：そのまま image 名として使用（例：my_app）\n  - 例：prefix:docker_ → docker_ と入力'
-  [build.title]="Build"
-  [build.ubuntu.prompt]=$'Ubuntu APT ミラーホスト\n  - 空 = Dockerfile / compose デフォルト (archive.ubuntu.com)\n  - 例 (台湾): tw.archive.ubuntu.com'
-  [build.debian.prompt]=$'Debian APT ミラーホスト\n  - 空 = Dockerfile / compose デフォルト (deb.debian.org)\n  - 例 (台湾): mirror.twds.com.tw'
-  [build.tz.prompt]=$'コンテナのタイムゾーン（IANA 名）\n  - 空 = Dockerfile デフォルト (Asia/Taipei)\n  - 例: UTC、Asia/Tokyo、America/Los_Angeles'
+  [build.title]="Build args"
+  [build.menu]="編集する項目を選択、または build arg を追加"
+  [build.add]="build arg を追加"
+  [build.back]="メインメニューへ戻る"
+  [build.arg.prompt]=$'Build arg（Dockerfile ARG 上書き）\n  - 形式: KEY=VALUE (KEY は [A-Z_][A-Z0-9_]* に合致)\n  - 空 = この項目を削除\n  - 既知の key（空の場合は Dockerfile のデフォルトが効く）：\n      APT_MIRROR_UBUNTU   デフォルト archive.ubuntu.com\n      APT_MIRROR_DEBIAN   デフォルト deb.debian.org\n      TZ                  デフォルト Asia/Taipei\n  - ユーザ定義：Dockerfile で `ARG KEY` 宣言済みの任意の key\n  - 例：APT_MIRROR_UBUNTU=tw.archive.ubuntu.com\n  - 例：PYTHON_VERSION=3.12'
   [network.title]="Network"
   [network.mode.prompt]="ネットワークモード"
   [network.mode.host]="host（ホストネットワークスタックを共有）"
@@ -938,21 +942,9 @@ _swap_image_rule() {
 }
 
 _edit_section_build() {
-  local _v _cur
-  _cur="$(_override_get "build.apt_mirror_ubuntu" "")"
-  _v="$(_tui_inputbox "$(_tui_msg build.title)" "$(_tui_msg build.ubuntu.prompt)" "${_cur}")" \
-    || return 0
-  _override_set "build.apt_mirror_ubuntu" "${_v}"
-
-  _cur="$(_override_get "build.apt_mirror_debian" "")"
-  _v="$(_tui_inputbox "$(_tui_msg build.title)" "$(_tui_msg build.debian.prompt)" "${_cur}")" \
-    || return 0
-  _override_set "build.apt_mirror_debian" "${_v}"
-
-  _cur="$(_override_get "build.tz" "")"
-  _v="$(_tui_inputbox "$(_tui_msg build.title)" "$(_tui_msg build.tz.prompt)" "${_cur}")" \
-    || return 0
-  _override_set "build.tz" "${_v}"
+  _edit_list_section build arg_ \
+    build.title build.menu build.add build.back \
+    build.arg.prompt _validate_env_kv err.invalid_env_kv
 }
 
 _edit_section_network() {

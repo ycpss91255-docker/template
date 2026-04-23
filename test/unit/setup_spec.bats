@@ -903,10 +903,10 @@ EOF
 }
 
 # ════════════════════════════════════════════════════════════════════
-# [build] section (apt_mirror fallback)
+# [build] section (arg_N KEY=VALUE schema)
 # ════════════════════════════════════════════════════════════════════
 
-@test "[build] apt_mirror empty writes empty .env value (no override)" {
+@test "[build] template defaults ship TW mirrors via arg_N" {
   cp /source/setup.conf "${TEMP_DIR}/setup.conf"
   run bash -c "
     source /source/script/docker/setup.sh
@@ -915,20 +915,16 @@ EOF
     grep '^APT_MIRROR_DEBIAN=' '${TEMP_DIR}/.env'
   "
   assert_success
-  # Empty value means compose.yaml's build.args `${VAR:-default}` fallback
-  # picks the upstream archive (not a hard-coded TW mirror).
-  assert_output --partial "APT_MIRROR_UBUNTU="
-  assert_output --partial "APT_MIRROR_DEBIAN="
-  refute_output --partial "APT_MIRROR_UBUNTU=tw.archive.ubuntu.com"
-  refute_output --partial "APT_MIRROR_DEBIAN=mirror.twds.com.tw"
+  assert_output --partial "APT_MIRROR_UBUNTU=tw.archive.ubuntu.com"
+  assert_output --partial "APT_MIRROR_DEBIAN=mirror.twds.com.tw"
 }
 
-@test "[build] apt_mirror non-empty overrides TW defaults" {
+@test "[build] arg_N override replaces TW default when set" {
   cp /source/setup.conf "${TEMP_DIR}/setup.conf"
-  _upsert_conf_value "${TEMP_DIR}/setup.conf" build apt_mirror_ubuntu \
-    "archive.ubuntu.com"
-  _upsert_conf_value "${TEMP_DIR}/setup.conf" build apt_mirror_debian \
-    "deb.debian.org"
+  _upsert_conf_value "${TEMP_DIR}/setup.conf" build arg_1 \
+    "APT_MIRROR_UBUNTU=archive.ubuntu.com"
+  _upsert_conf_value "${TEMP_DIR}/setup.conf" build arg_2 \
+    "APT_MIRROR_DEBIAN=deb.debian.org"
   run bash -c "
     source /source/script/docker/setup.sh
     main --base-path '${TEMP_DIR}' 2>&1
@@ -938,6 +934,41 @@ EOF
   assert_success
   assert_output --partial "APT_MIRROR_UBUNTU=archive.ubuntu.com"
   assert_output --partial "APT_MIRROR_DEBIAN=deb.debian.org"
+}
+
+@test "[build] back-compat: old apt_mirror_* named keys still read" {
+  # Legacy repo setup.conf with the pre-arg_N schema must keep working
+  # so users can upgrade template without rewriting setup.conf first.
+  cat > "${TEMP_DIR}/setup.conf" <<'EOF'
+[build]
+apt_mirror_ubuntu = mirror.example.com
+tz = Asia/Tokyo
+EOF
+  run bash -c "
+    source /source/script/docker/setup.sh
+    main --base-path '${TEMP_DIR}' 2>&1
+    grep '^APT_MIRROR_UBUNTU=' '${TEMP_DIR}/.env'
+    grep '^TZ=' '${TEMP_DIR}/.env'
+  "
+  assert_success
+  assert_output --partial "APT_MIRROR_UBUNTU=mirror.example.com"
+  assert_output --partial "TZ=Asia/Tokyo"
+}
+
+@test "[build] user-added arg_N propagates to .env" {
+  # Dockerfile with `ARG PYTHON_VERSION` can pick up a user-added
+  # build arg. Extra args land in .env so compose build.args can
+  # reference them.
+  cp /source/setup.conf "${TEMP_DIR}/setup.conf"
+  _upsert_conf_value "${TEMP_DIR}/setup.conf" build arg_9 \
+    "PYTHON_VERSION=3.12"
+  run bash -c "
+    source /source/script/docker/setup.sh
+    main --base-path '${TEMP_DIR}' 2>&1
+    grep '^PYTHON_VERSION=' '${TEMP_DIR}/.env'
+  "
+  assert_success
+  assert_output --partial "PYTHON_VERSION=3.12"
 }
 
 # ════════════════════════════════════════════════════════════════════

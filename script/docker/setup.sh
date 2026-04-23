@@ -565,6 +565,7 @@ generate_compose_yaml() {
   local _cap_drop_str="${17:-}"
   local _sec_opt_str="${18:-}"
   local _cgroup_rule_str="${19:-}"
+  local _user_build_args_str="${20:-}"
 
   # Convert space-separated caps to YAML array form [a, b, c]
   local -a _caps_arr=()
@@ -601,6 +602,21 @@ services:
         USER_GROUP: \${USER_GROUP}
         USER_UID: \${USER_UID}
         USER_GID: \${USER_GID}
+YAML
+    # User-added [build] args: emit each as `KEY: \${KEY}` — Dockerfile's
+    # `ARG KEY="default"` fallback handles empty values. No hard-coded
+    # defaults here since template doesn't know them.
+    _emit_user_build_args() {
+      [[ -z "${_user_build_args_str}" ]] && return 0
+      local _ub _k
+      while IFS= read -r _ub; do
+        [[ -z "${_ub}" ]] && continue
+        _k="${_ub%%=*}"
+        printf '        %s: ${%s}\n' "${_k}" "${_k}"
+      done <<< "${_user_build_args_str}"
+    }
+    _emit_user_build_args
+    cat <<YAML
     image: \${DOCKER_HUB_USER:-local}/${_name}:devel
     container_name: ${_name}\${INSTANCE_SUFFIX:-}
     privileged: \${PRIVILEGED}
@@ -743,6 +759,9 @@ YAML
         USER_GROUP: \${USER_GROUP}
         USER_UID: \${USER_UID}
         USER_GID: \${USER_GID}
+YAML
+    _emit_user_build_args
+    cat <<YAML
     image: \${DOCKER_HUB_USER:-local}/${_name}:test
     profiles:
       - test
@@ -768,7 +787,13 @@ YAML
 #                  <network_mode> <ipc_mode> <privileged>
 #                  <gpu_count> <gpu_caps>
 #                  <gui_detected> <conf_hash>
-#                  [<network_name>]
+#                  [<network_name>] [<user_build_args>]
+#
+# user_build_args is a newline-separated list of "KEY=VALUE" pairs
+# from `[build] arg_N` entries outside the three known keys
+# (APT_MIRROR_UBUNTU / APT_MIRROR_DEBIAN / TZ). Each pair is appended
+# as an exported env var so compose.yaml's generated build.args block
+# can reference them via ${KEY}.
 # ════════════════════════════════════════════════════════════════════
 write_env() {
   local _env_file="${1:?}"; shift
@@ -791,7 +816,8 @@ write_env() {
   local _gpu_caps="${1}"; shift
   local _gui_detected="${1}"; shift
   local _conf_hash="${1}"; shift
-  local _network_name="${1:-}"
+  local _network_name="${1:-}"; shift || true
+  local _user_build_args="${1:-}"
 
   local _comment=""
   _comment="$(_msg env_comment)"
@@ -832,6 +858,24 @@ SETUP_CONF_HASH=${_conf_hash}
 SETUP_GUI_DETECTED=${_gui_detected}
 SETUP_TIMESTAMP=$(date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S%z')
 EOF
+
+  # ── Extra [build] args (user-added, beyond APT_MIRROR_* / TZ) ──
+  # Appended after the fixed block so downstream consumers read them
+  # via the same set -o allexport source.
+  if [[ -n "${_user_build_args:-}" ]]; then
+    {
+      printf '\n# ── Extra build args (from [build] arg_N) ──\n'
+      local _line _k _v
+      while IFS= read -r _line; do
+        [[ -z "${_line}" ]] && continue
+        _k="${_line%%=*}"
+        _v="${_line#*=}"
+        # Quote the value so multi-word / shell-metachar values round-trip
+        # safely through `source .env` (regression: GPU_CAPABILITIES).
+        printf '%s=%q\n' "${_k}" "${_v}"
+      done <<< "${_user_build_args}"
+    } >> "${_env_file}"
+  fi
 }
 
 # ════════════════════════════════════════════════════════════════════
@@ -952,13 +996,47 @@ main() {
   _load_setup_conf "${_base_path}" "tmpfs"       _tmp_k _tmp_v
   _load_setup_conf "${_base_path}" "security"    _sec_k _sec_v
 
-  # Build args: empty means "do not override" — let compose.yaml's
-  # build.args `${VAR:-<default>}` fallback pick the upstream / Dockerfile
-  # default (e.g. archive.ubuntu.com for APT, Asia/Taipei for TZ).
+  # Build args: each `[build] arg_N = KEY=VALUE` entry becomes a
+  # compose build.arg. Empty VALUE means "do not override" — let
+  # compose.yaml's `${VAR:-<default>}` fallback pick the Dockerfile
+  # default (archive.ubuntu.com for APT, Asia/Taipei for TZ, etc.).
+  local -a _build_args=()
+  _get_conf_list_sorted _build_k _build_v "arg_" _build_args
+
+  # Back-compat: repos that still have the old named-key schema
+  # (apt_mirror_ubuntu = …, tz = …) keep working without having to
+  # rewrite setup.conf. We lift those named keys into the arg_N list
+  # at runtime; the TUI saves in the new format the next time the
+  # user hits Save.
+  if (( ${#_build_args[@]} == 0 )); then
+    local _bc_v=""
+    _get_conf_value _build_k _build_v "apt_mirror_ubuntu" "" _bc_v
+    [[ -n "${_bc_v}" ]] && _build_args+=("APT_MIRROR_UBUNTU=${_bc_v}")
+    _bc_v=""
+    _get_conf_value _build_k _build_v "apt_mirror_debian" "" _bc_v
+    [[ -n "${_bc_v}" ]] && _build_args+=("APT_MIRROR_DEBIAN=${_bc_v}")
+    _bc_v=""
+    _get_conf_value _build_k _build_v "tz" "" _bc_v
+    [[ -n "${_bc_v}" ]] && _build_args+=("TZ=${_bc_v}")
+  fi
+
+  # Extract specific known values that write_env + the hardcoded
+  # compose.yaml build.args block reference by name. Anything not in
+  # the known set is emitted as a generic user-added arg.
   local apt_mirror_ubuntu="" apt_mirror_debian="" tz=""
-  _get_conf_value _build_k _build_v "apt_mirror_ubuntu" "" apt_mirror_ubuntu
-  _get_conf_value _build_k _build_v "apt_mirror_debian" "" apt_mirror_debian
-  _get_conf_value _build_k _build_v "tz"                "" tz
+  local -a _user_build_args=()
+  local _arg _k _v
+  for _arg in "${_build_args[@]}"; do
+    [[ "${_arg}" != *=* ]] && continue
+    _k="${_arg%%=*}"
+    _v="${_arg#*=}"
+    case "${_k}" in
+      APT_MIRROR_UBUNTU) apt_mirror_ubuntu="${_v}" ;;
+      APT_MIRROR_DEBIAN) apt_mirror_debian="${_v}" ;;
+      TZ)                tz="${_v}" ;;
+      *)                 _user_build_args+=("${_k}=${_v}") ;;
+    esac
+  done
 
   local gpu_mode="" gpu_count="" gpu_caps=""
   local gui_mode=""
@@ -1085,6 +1163,12 @@ main() {
   local conf_hash=""
   _compute_conf_hash "${_base_path}" conf_hash
 
+  # Join user-added build args (newline-separated) for write_env.
+  local _user_build_args_str=""
+  if (( ${#_user_build_args[@]} > 0 )); then
+    _user_build_args_str="$(printf '%s\n' "${_user_build_args[@]}")"
+  fi
+
   # ── Generate artifacts ──
   write_env "${_env_file}" \
     "${user_name}" "${user_group}" "${user_uid}" "${user_gid}" \
@@ -1094,7 +1178,8 @@ main() {
     "${net_mode}" "${ipc_mode}" "${privileged}" \
     "${gpu_count}" "${gpu_caps}" \
     "${gui_detected}" "${conf_hash}" \
-    "${network_name}"
+    "${network_name}" \
+    "${_user_build_args_str}"
 
   generate_compose_yaml "${_base_path}/compose.yaml" "${image_name}" \
     "${gui_enabled_eff}" "${gpu_enabled_eff}" \
@@ -1104,7 +1189,8 @@ main() {
     "${_env_str}" "${_tmpfs_str}" "${_ports_str}" \
     "${_shm_size}" "${net_mode}" "${ipc_mode}" \
     "${_cap_add_str}" "${_cap_drop_str}" "${_sec_opt_str}" \
-    "${_cgroup_rule_str}"
+    "${_cgroup_rule_str}" \
+    "${_user_build_args_str}"
 
   printf "[setup] %s\n" "$(_msg env_done)"
   printf "[setup] USER=%s (%s:%s)  GPU=%s/%s  GUI=%s/%s  IMAGE=%s  WS=%s\n" \
