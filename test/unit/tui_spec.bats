@@ -195,6 +195,35 @@ teardown() {
 }
 
 # ════════════════════════════════════════════════════════════════════
+# _validate_target_arch
+# ════════════════════════════════════════════════════════════════════
+
+@test "_validate_target_arch accepts empty (auto-detect)" {
+  _validate_target_arch ""
+}
+
+@test "_validate_target_arch accepts BuildKit-known arches" {
+  _validate_target_arch amd64
+  _validate_target_arch arm64
+  _validate_target_arch arm
+  _validate_target_arch 386
+  _validate_target_arch ppc64le
+  _validate_target_arch s390x
+  _validate_target_arch riscv64
+}
+
+@test "_validate_target_arch rejects unknown arches and aliases" {
+  run _validate_target_arch "x86_64"   # common typo — BuildKit uses amd64
+  [ "${status}" -ne 0 ]
+  run _validate_target_arch "aarch64"  # another alias
+  [ "${status}" -ne 0 ]
+  run _validate_target_arch "foo"
+  [ "${status}" -ne 0 ]
+  run _validate_target_arch "ARM64"    # case-sensitive
+  [ "${status}" -ne 0 ]
+}
+
+# ════════════════════════════════════════════════════════════════════
 # _validate_gpu_count
 # ════════════════════════════════════════════════════════════════════
 

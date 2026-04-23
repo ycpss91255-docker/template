@@ -1,6 +1,6 @@
 # TEST.md
 
-Template self-tests: **510 tests** total (477 unit + 33 integration).
+Template self-tests: **522 tests** total (489 unit + 33 integration).
 
 ## Test Files
 

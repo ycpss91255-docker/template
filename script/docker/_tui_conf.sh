@@ -142,6 +142,19 @@ _validate_capability() {
   return 1
 }
 
+# _validate_target_arch <value>
+#
+# Accepts the Docker BuildKit-recognised architectures or an empty
+# string (empty = let BuildKit auto-fill from host/--platform).
+_validate_target_arch() {
+  local _v="${1-}"
+  [[ -z "${_v}" ]] && return 0
+  case "${_v}" in
+    amd64|arm64|arm|386|ppc64le|s390x|riscv64) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # ════════════════════════════════════════════════════════════════════
 # Mount-string parsers
 # ════════════════════════════════════════════════════════════════════

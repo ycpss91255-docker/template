@@ -270,6 +270,28 @@ teardown() {
   assert_success
 }
 
+@test "generate_compose_yaml emits TARGETARCH line in both services when target_arch set" {
+  local _extras=()
+  # Positional args up to #20 are optional (defaults via ${N:-}); pos #21 is target_arch.
+  generate_compose_yaml "${COMPOSE_OUT}" "myrepo" \
+    "false" "false" "0" "gpu" _extras \
+    "" "" "" "" "" "" "host" "host" \
+    "" "" "" "" "" "arm64"
+  # Must appear under both devel + test service build.args blocks.
+  run grep -cF 'TARGETARCH: ${TARGET_ARCH}' "${COMPOSE_OUT}"
+  assert_success
+  assert_output "2"
+}
+
+@test "generate_compose_yaml omits TARGETARCH line when target_arch empty (BuildKit auto-fill)" {
+  local _extras=()
+  # Omit the final target_arch arg entirely — default is empty.
+  generate_compose_yaml "${COMPOSE_OUT}" "myrepo" \
+    "false" "false" "0" "gpu" _extras
+  run grep -F 'TARGETARCH:' "${COMPOSE_OUT}"
+  assert_failure
+}
+
 @test "generate_compose_yaml does NOT emit /dev:/dev by default (not in baseline)" {
   local _extras=()
   generate_compose_yaml "${COMPOSE_OUT}" "myrepo" \

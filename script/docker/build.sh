@@ -191,6 +191,11 @@ main() {
   local _tools_dockerfile="${FILE_PATH}/template/dockerfile/Dockerfile.test-tools"
   local _tools_args=()
   [[ "${NO_CACHE}" == true ]] && _tools_args+=(--no-cache)
+  # Forward user's TARGETARCH override when set. Empty = leave unset so
+  # BuildKit auto-fills from host/--platform (no --build-arg passed).
+  if [[ -n "${TARGET_ARCH:-}" ]]; then
+    _tools_args+=(--build-arg "TARGETARCH=${TARGET_ARCH}")
+  fi
   if [[ -f "${_tools_dockerfile}" ]]; then
     if [[ "${DRY_RUN}" == true ]]; then
       printf '[dry-run] docker build'

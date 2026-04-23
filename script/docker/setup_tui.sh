@@ -86,11 +86,16 @@ declare -gA _TUI_MSG_EN=(
   [image.type.move_down]="Move down (swap with next rule)"
   [image.type.remove]="Remove    (delete this rule)"
   [image.value.prompt]=$'Rule value\n  - Empty = cancel\n  - prefix / suffix / @default: strip or fall-back value\n  - string: exact image name (e.g. my_app)\n  - e.g. prefix:docker_ → enter: docker_'
-  [build.title]="Build args"
-  [build.menu]="Select an arg to edit, or Add a new one"
+  [build.title]="Build configuration"
+  [build.menu]="Pick an item to edit"
   [build.add]="Add build arg"
   [build.back]="Back to main menu"
   [build.arg.prompt]=$'Build arg (Dockerfile ARG override)\n  - Format: KEY=VALUE (KEY must match [A-Z_][A-Z0-9_]*)\n  - Empty = delete this entry\n  - Known keys (Dockerfile provides defaults when left empty here):\n      APT_MIRROR_UBUNTU   default archive.ubuntu.com\n      APT_MIRROR_DEBIAN   default deb.debian.org\n      TZ                  default Asia/Taipei\n  - User-added: any KEY that your Dockerfile declares with `ARG KEY`\n  - Example: APT_MIRROR_UBUNTU=tw.archive.ubuntu.com\n  - Example: PYTHON_VERSION=3.12'
+  [build.target_arch.label]="TARGETARCH override"
+  [build.target_arch.prompt]=$'Docker TARGETARCH override\n  - Empty = let BuildKit auto-fill from host / --platform (default)\n  - amd64 / arm64 / arm / 386 / ppc64le / s390x / riscv64\n  - Applies to the main image + the test-tools image\n  - Pin when you need cross-builds or explicit control'
+  [build.target_arch.auto]="(auto)"
+  [build.args.label]="Extra build args"
+  [err.invalid_target_arch]="Invalid TARGETARCH. Use empty or amd64 / arm64 / arm / 386 / ppc64le / s390x / riscv64."
   [network.title]="Network"
   [network.mode.prompt]="Network mode"
   [network.mode.host]="host (share host network stack)"
@@ -223,11 +228,16 @@ declare -gA _TUI_MSG_ZH_TW=(
   [image.type.move_down]="往下      （與後一條規則交換）"
   [image.type.remove]="移除      （刪除此規則）"
   [image.value.prompt]=$'規則參數\n  - 留空 = 取消\n  - prefix / suffix / @default：剝除或預設值\n  - string：直接用做 image 名稱（例：my_app）\n  - 例：prefix:docker_ → 輸入 docker_'
-  [build.title]="Build args"
-  [build.menu]="選擇項目編輯，或新增 build arg"
+  [build.title]="Build 設定"
+  [build.menu]="選擇項目編輯"
   [build.add]="新增 build arg"
   [build.back]="回主選單"
   [build.arg.prompt]=$'Build arg（Dockerfile ARG 覆蓋）\n  - 格式：KEY=VALUE（KEY 需符合 [A-Z_][A-Z0-9_]*）\n  - 留空 = 刪除此項目\n  - 已知 key（留空時 Dockerfile 預設生效）：\n      APT_MIRROR_UBUNTU   預設 archive.ubuntu.com\n      APT_MIRROR_DEBIAN   預設 deb.debian.org\n      TZ                  預設 Asia/Taipei\n  - 自訂：任何 Dockerfile 中 `ARG KEY` 宣告過的 key\n  - 範例：APT_MIRROR_UBUNTU=tw.archive.ubuntu.com\n  - 範例：PYTHON_VERSION=3.12'
+  [build.target_arch.label]="TARGETARCH 覆寫"
+  [build.target_arch.prompt]=$'Docker TARGETARCH 覆寫\n  - 留空 = 交給 BuildKit 依 host / --platform 自動填（預設）\n  - amd64 / arm64 / arm / 386 / ppc64le / s390x / riscv64\n  - 同時套用主 image 與 test-tools image\n  - 需要跨架構編譯或明確指定時才填'
+  [build.target_arch.auto]="（自動）"
+  [build.args.label]="額外 build args"
+  [err.invalid_target_arch]="TARGETARCH 無效，請填空值或 amd64 / arm64 / arm / 386 / ppc64le / s390x / riscv64。"
   [network.title]="Network"
   [network.mode.prompt]="網路模式"
   [network.mode.host]="host（共用主機網路堆疊）"
@@ -360,11 +370,16 @@ declare -gA _TUI_MSG_ZH_CN=(
   [image.type.move_down]="下移      （与后一条规则交换）"
   [image.type.remove]="移除      （删除此规则）"
   [image.value.prompt]=$'规则参数\n  - 留空 = 取消\n  - prefix / suffix / @default：剥除或默认值\n  - string：直接作为 image 名称（例：my_app）\n  - 例：prefix:docker_ → 输入 docker_'
-  [build.title]="Build args"
-  [build.menu]="选择项目编辑，或新增 build arg"
+  [build.title]="Build 配置"
+  [build.menu]="选择项目编辑"
   [build.add]="新增 build arg"
   [build.back]="回主菜单"
   [build.arg.prompt]=$'Build arg（Dockerfile ARG 覆盖）\n  - 格式：KEY=VALUE（KEY 需符合 [A-Z_][A-Z0-9_]*）\n  - 留空 = 删除此项目\n  - 已知 key（留空时 Dockerfile 默认生效）：\n      APT_MIRROR_UBUNTU   默认 archive.ubuntu.com\n      APT_MIRROR_DEBIAN   默认 deb.debian.org\n      TZ                  默认 Asia/Taipei\n  - 自定：任何 Dockerfile 中 `ARG KEY` 声明过的 key\n  - 示例：APT_MIRROR_UBUNTU=tw.archive.ubuntu.com\n  - 示例：PYTHON_VERSION=3.12'
+  [build.target_arch.label]="TARGETARCH 覆盖"
+  [build.target_arch.prompt]=$'Docker TARGETARCH 覆盖\n  - 留空 = 交给 BuildKit 依 host / --platform 自动填（默认）\n  - amd64 / arm64 / arm / 386 / ppc64le / s390x / riscv64\n  - 同时应用于主 image 与 test-tools image\n  - 需要跨架构构建或明确指定时才填'
+  [build.target_arch.auto]="（自动）"
+  [build.args.label]="额外 build args"
+  [err.invalid_target_arch]="TARGETARCH 无效，请填空值或 amd64 / arm64 / arm / 386 / ppc64le / s390x / riscv64。"
   [network.title]="Network"
   [network.mode.prompt]="网络模式"
   [network.mode.host]="host（共用主机网络栈）"
@@ -492,11 +507,16 @@ declare -gA _TUI_MSG_JA=(
   [image.type.move_down]="下へ      （次のルールと入れ替え）"
   [image.type.remove]="削除      （このルールを削除）"
   [image.value.prompt]=$'ルール値\n  - 空 = キャンセル\n  - prefix / suffix / @default：除去または fallback 値\n  - string：そのまま image 名として使用（例：my_app）\n  - 例：prefix:docker_ → docker_ と入力'
-  [build.title]="Build args"
-  [build.menu]="編集する項目を選択、または build arg を追加"
+  [build.title]="Build 設定"
+  [build.menu]="編集する項目を選択"
   [build.add]="build arg を追加"
   [build.back]="メインメニューへ戻る"
   [build.arg.prompt]=$'Build arg（Dockerfile ARG 上書き）\n  - 形式: KEY=VALUE (KEY は [A-Z_][A-Z0-9_]* に合致)\n  - 空 = この項目を削除\n  - 既知の key（空の場合は Dockerfile のデフォルトが効く）：\n      APT_MIRROR_UBUNTU   デフォルト archive.ubuntu.com\n      APT_MIRROR_DEBIAN   デフォルト deb.debian.org\n      TZ                  デフォルト Asia/Taipei\n  - ユーザ定義：Dockerfile で `ARG KEY` 宣言済みの任意の key\n  - 例：APT_MIRROR_UBUNTU=tw.archive.ubuntu.com\n  - 例：PYTHON_VERSION=3.12'
+  [build.target_arch.label]="TARGETARCH 上書き"
+  [build.target_arch.prompt]=$'Docker TARGETARCH 上書き\n  - 空 = BuildKit が host / --platform から自動補完（デフォルト）\n  - amd64 / arm64 / arm / 386 / ppc64le / s390x / riscv64\n  - メイン image と test-tools image の両方に適用\n  - クロスビルドや明示指定が必要なときのみ設定'
+  [build.target_arch.auto]="（自動）"
+  [build.args.label]="追加 build args"
+  [err.invalid_target_arch]="TARGETARCH が不正です。空、または amd64 / arm64 / arm / 386 / ppc64le / s390x / riscv64 を指定してください。"
   [network.title]="Network"
   [network.mode.prompt]="ネットワークモード"
   [network.mode.host]="host（ホストネットワークスタックを共有）"
@@ -942,9 +962,54 @@ _swap_image_rule() {
 }
 
 _edit_section_build() {
-  _edit_list_section build arg_ \
-    build.title build.menu build.add build.back \
-    build.arg.prompt _validate_env_kv err.invalid_env_kv
+  while true; do
+    local _arch_cur _arch_display _args_cnt
+    _arch_cur="$(_override_get "build.target_arch" "")"
+    if [[ -n "${_arch_cur}" ]]; then
+      _arch_display="${_arch_cur}"
+    else
+      _arch_display="$(_tui_msg build.target_arch.auto)"
+    fi
+    # Count populated arg_N slots for the menu-item badge. Pulls from
+    # the pending override state (_TUI_CURRENT is the effective view
+    # after overrides + removals have been merged).
+    _args_cnt=0
+    local _ak
+    # shellcheck disable=SC2154
+    for _ak in "${!_TUI_CURRENT[@]}"; do
+      [[ "${_ak}" == build.arg_* ]] || continue
+      [[ -n "${_TUI_CURRENT[${_ak}]}" ]] && _args_cnt=$((_args_cnt + 1))
+    done
+
+    local _choice
+    _choice="$(_tui_menu "$(_tui_msg build.title)" "$(_tui_msg build.menu)" \
+      target_arch "$(_tui_msg build.target_arch.label) = ${_arch_display}" \
+      args        "$(_tui_msg build.args.label) (${_args_cnt})" \
+      __back      "$(_tui_msg build.back)")" || return 0
+
+    case "${_choice}" in
+      target_arch)
+        local _new
+        _new="$(_tui_inputbox "$(_tui_msg build.title)" \
+          "$(_tui_msg build.target_arch.prompt)" "${_arch_cur}")" || continue
+        if ! _validate_target_arch "${_new}"; then
+          _tui_msgbox "$(_tui_msg build.title)" "$(_tui_msg err.invalid_target_arch)"
+          continue
+        fi
+        # Consistent with other scalar keys (e.g. resources.shm_size):
+        # empty value keeps the key present with "" in setup.conf, and
+        # setup.sh's `[[ -n $target_arch ]]` check handles the empty
+        # case by omitting TARGETARCH from .env + compose.yaml.
+        _override_set "build.target_arch" "${_new}"
+        ;;
+      args)
+        _edit_list_section build arg_ \
+          build.title build.menu build.add build.back \
+          build.arg.prompt _validate_env_kv err.invalid_env_kv
+        ;;
+      __back|"") return 0 ;;
+    esac
+  done
 }
 
 _edit_section_network() {

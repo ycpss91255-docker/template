@@ -971,6 +971,32 @@ EOF
   assert_output --partial "PYTHON_VERSION=3.12"
 }
 
+@test "[build] target_arch = arm64 writes TARGET_ARCH to .env" {
+  cp /source/setup.conf "${TEMP_DIR}/setup.conf"
+  _upsert_conf_value "${TEMP_DIR}/setup.conf" build target_arch arm64
+  run bash -c "
+    source /source/script/docker/setup.sh
+    main --base-path '${TEMP_DIR}' >/dev/null 2>&1
+    grep '^TARGET_ARCH=' '${TEMP_DIR}/.env'
+  "
+  assert_success
+  assert_output --partial "TARGET_ARCH=arm64"
+}
+
+@test "[build] target_arch empty omits TARGET_ARCH from .env" {
+  cp /source/setup.conf "${TEMP_DIR}/setup.conf"
+  # Explicit empty value (the template's default)
+  _upsert_conf_value "${TEMP_DIR}/setup.conf" build target_arch ""
+  run bash -c "
+    source /source/script/docker/setup.sh
+    main --base-path '${TEMP_DIR}' >/dev/null 2>&1
+    grep -c '^TARGET_ARCH=' '${TEMP_DIR}/.env'
+  "
+  # grep -c prints "0" and exits 1 when pattern missing; we want exactly that.
+  assert_failure
+  assert_output "0"
+}
+
 # ════════════════════════════════════════════════════════════════════
 # _get_conf_list_sorted skips empty values
 # ════════════════════════════════════════════════════════════════════

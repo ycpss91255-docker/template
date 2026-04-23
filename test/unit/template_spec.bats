@@ -465,6 +465,27 @@ EOF
   assert_success
 }
 
+@test "Dockerfile.test-tools declares ARG TARGETARCH" {
+  run grep -E '^ARG TARGETARCH' /source/dockerfile/Dockerfile.test-tools
+  assert_success
+}
+
+@test "Dockerfile.test-tools branches case for amd64 and arm64" {
+  # Must handle both common arches; amd64 → x86_64 binaries,
+  # arm64 → aarch64 (shellcheck) + arm64 (hadolint) binaries.
+  run grep -E 'amd64\)' /source/dockerfile/Dockerfile.test-tools
+  assert_success
+  run grep -E 'arm64\)' /source/dockerfile/Dockerfile.test-tools
+  assert_success
+  run grep -E 'aarch64' /source/dockerfile/Dockerfile.test-tools
+  assert_success
+}
+
+@test "Dockerfile.test-tools fails loud on unsupported TARGETARCH" {
+  run grep -E 'Unsupported TARGETARCH' /source/dockerfile/Dockerfile.test-tools
+  assert_success
+}
+
 @test "i18n.sh defines _detect_lang function" {
   run grep -E '^_detect_lang\(\)' /source/script/docker/i18n.sh
   assert_success

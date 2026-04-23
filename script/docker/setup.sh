@@ -566,6 +566,16 @@ generate_compose_yaml() {
   local _sec_opt_str="${18:-}"
   local _cgroup_rule_str="${19:-}"
   local _user_build_args_str="${20:-}"
+  local _target_arch="${21:-}"
+
+  # TARGETARCH line emitter: only when target_arch is set. Empty =
+  # omit the line entirely so BuildKit auto-fills TARGETARCH from the
+  # host. Shared between devel + test service blocks below.
+  _emit_target_arch_line() {
+    [[ -z "${_target_arch}" ]] && return 0
+    # shellcheck disable=SC2016  # literal ${} consumed by compose, not bash
+    printf '        TARGETARCH: ${TARGET_ARCH}\n'
+  }
 
   # Convert space-separated caps to YAML array form [a, b, c]
   local -a _caps_arr=()
@@ -603,6 +613,7 @@ services:
         USER_UID: \${USER_UID}
         USER_GID: \${USER_GID}
 YAML
+    _emit_target_arch_line
     # User-added [build] args: emit each as `KEY: \${KEY}` — Dockerfile's
     # `ARG KEY="default"` fallback handles empty values. No hard-coded
     # defaults here since template doesn't know them.
@@ -763,6 +774,7 @@ YAML
         USER_UID: \${USER_UID}
         USER_GID: \${USER_GID}
 YAML
+    _emit_target_arch_line
     _emit_user_build_args
     cat <<YAML
     image: \${DOCKER_HUB_USER:-local}/${_name}:test
@@ -790,13 +802,18 @@ YAML
 #                  <network_mode> <ipc_mode> <privileged>
 #                  <gpu_count> <gpu_caps>
 #                  <gui_detected> <conf_hash>
-#                  [<network_name>] [<user_build_args>]
+#                  [<network_name>] [<user_build_args>] [<target_arch>]
 #
 # user_build_args is a newline-separated list of "KEY=VALUE" pairs
 # from `[build] arg_N` entries outside the three known keys
 # (APT_MIRROR_UBUNTU / APT_MIRROR_DEBIAN / TZ). Each pair is appended
 # as an exported env var so compose.yaml's generated build.args block
 # can reference them via ${KEY}.
+#
+# target_arch (optional): when non-empty, exported as TARGET_ARCH so
+# build.sh / compose.yaml can force the Docker TARGETARCH build arg.
+# Empty/omitted means "don't touch" — BuildKit's auto-detection of the
+# host / --platform stays intact.
 # ════════════════════════════════════════════════════════════════════
 write_env() {
   local _env_file="${1:?}"; shift
@@ -820,7 +837,8 @@ write_env() {
   local _gui_detected="${1}"; shift
   local _conf_hash="${1}"; shift
   local _network_name="${1:-}"; shift || true
-  local _user_build_args="${1:-}"
+  local _user_build_args="${1:-}"; shift || true
+  local _target_arch="${1:-}"
 
   local _comment=""
   _comment="$(_msg env_comment)"
@@ -877,6 +895,16 @@ EOF
         # safely through `source .env` (regression: GPU_CAPABILITIES).
         printf '%s=%q\n' "${_k}" "${_v}"
       done <<< "${_user_build_args}"
+    } >> "${_env_file}"
+  fi
+
+  # TARGETARCH override: only emit when the user explicitly set it in
+  # [build] target_arch. Empty stays unset so build.sh / compose skip
+  # the --build-arg and BuildKit's auto-fill kicks in.
+  if [[ -n "${_target_arch:-}" ]]; then
+    {
+      printf '\n# ── TARGETARCH override (from [build] target_arch) ──\n'
+      printf 'TARGET_ARCH=%q\n' "${_target_arch}"
     } >> "${_env_file}"
   fi
 }
@@ -1041,6 +1069,13 @@ main() {
     esac
   done
 
+  # TARGETARCH override: scalar `[build] target_arch` sits alongside
+  # the arg_N list. Empty = let BuildKit auto-fill from host /
+  # --platform (no --build-arg passed, no compose build.arg emitted).
+  # Non-empty = pin the value for cross-build or explicit control.
+  local target_arch=""
+  _get_conf_value _build_k _build_v "target_arch" "" target_arch
+
   local gpu_mode="" gpu_count="" gpu_caps=""
   local gui_mode=""
   local net_mode="" ipc_mode="" privileged="" network_name=""
@@ -1182,7 +1217,8 @@ main() {
     "${gpu_count}" "${gpu_caps}" \
     "${gui_detected}" "${conf_hash}" \
     "${network_name}" \
-    "${_user_build_args_str}"
+    "${_user_build_args_str}" \
+    "${target_arch}"
 
   generate_compose_yaml "${_base_path}/compose.yaml" "${image_name}" \
     "${gui_enabled_eff}" "${gpu_enabled_eff}" \
@@ -1193,7 +1229,8 @@ main() {
     "${_shm_size}" "${net_mode}" "${ipc_mode}" \
     "${_cap_add_str}" "${_cap_drop_str}" "${_sec_opt_str}" \
     "${_cgroup_rule_str}" \
-    "${_user_build_args_str}"
+    "${_user_build_args_str}" \
+    "${target_arch}"
 
   printf "[setup] %s\n" "$(_msg env_done)"
   printf "[setup] USER=%s (%s:%s)  GPU=%s/%s  GUI=%s/%s  IMAGE=%s  WS=%s\n" \

@@ -54,6 +54,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   GPU/GUI/TZ flags — so users see every value this run consumes
   without having to diff `.env` or run `docker compose config`
 
+### Added
+- **`[build] target_arch` TARGETARCH override**: new scalar key
+  alongside the `arg_N` list. Non-empty value pins Docker's
+  `TARGETARCH` build arg for both the main image and the test-tools
+  image (main via compose `build.args`, test-tools via
+  `build.sh --build-arg`). Empty (default) leaves BuildKit's
+  auto-detection intact. Valid values: `amd64` / `arm64` / `arm` /
+  `386` / `ppc64le` / `s390x` / `riscv64`. `setup_tui.sh` → Build
+  adds a dedicated menu entry; `_validate_target_arch` catches typos
+  like `aarch64` / `x86_64` (BuildKit uses `arm64` / `amd64`).
+- **`Dockerfile.test-tools` multi-arch**: `ARG TARGETARCH=amd64`
+  branches the ShellCheck + Hadolint download URLs via a `case`
+  statement. BuildKit auto-fills on amd64 / arm64 hosts; falls back
+  to amd64 binaries on legacy builders. Rejects unsupported arches
+  loudly instead of silently grabbing a wrong-arch binary
+
 ### BREAKING
 - **Language code `zh` renamed to `zh-TW`** (BCP-47). `--lang zh`
   no longer accepted; use `--lang zh-TW` (Taiwan Traditional).

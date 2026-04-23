@@ -158,6 +158,36 @@ teardown() {
   assert_output --partial "test"
 }
 
+@test "build.sh passes --build-arg TARGETARCH=<value> when TARGET_ARCH set in .env" {
+  # Seed .env with TARGET_ARCH so the drift-check path loads it into
+  # the build.sh environment; then the test-tools build should forward
+  # it via --build-arg.
+  {
+    echo "USER_NAME=tester"
+    echo "IMAGE_NAME=mockimg"
+    echo "DOCKER_HUB_USER=mockuser"
+    echo "TARGET_ARCH=arm64"
+  } > "${SANDBOX}/.env"
+  : > "${SANDBOX}/setup.conf"
+  run bash "${SANDBOX}/build.sh" --dry-run
+  assert_success
+  assert_output --partial "--build-arg TARGETARCH=arm64"
+}
+
+@test "build.sh omits --build-arg TARGETARCH when TARGET_ARCH absent from .env" {
+  # No TARGET_ARCH line → BuildKit auto-fills, build.sh must not pass
+  # any --build-arg for TARGETARCH.
+  {
+    echo "USER_NAME=tester"
+    echo "IMAGE_NAME=mockimg"
+    echo "DOCKER_HUB_USER=mockuser"
+  } > "${SANDBOX}/.env"
+  : > "${SANDBOX}/setup.conf"
+  run bash "${SANDBOX}/build.sh" --dry-run
+  assert_success
+  refute_output --partial "TARGETARCH"
+}
+
 @test "build.sh --lang zh-TW prints Chinese usage text" {
   run bash "${SANDBOX}/build.sh" --lang zh-TW --help
   assert_success
