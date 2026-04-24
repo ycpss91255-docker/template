@@ -1,10 +1,10 @@
 # TEST.md
 
-Template self-tests: **610 tests** total (567 unit + 43 integration).
+Template self-tests: **632 tests** total (589 unit + 43 integration).
 
 ## Test Files
 
-### test/unit/lib_spec.bats (26)
+### test/unit/lib_spec.bats (34)
 
 | Test | Description |
 |------|-------------|
@@ -34,7 +34,7 @@ Template self-tests: **610 tests** total (567 unit + 43 integration).
 | `_print_config_summary hides sections that are empty in setup.conf` | Empty-section skip |
 | `_print_config_summary warns when setup.conf is missing` | Missing-conf hint |
 
-### test/unit/setup_spec.bats (97)
+### test/unit/setup_spec.bats (105)
 
 Covers core detection (user/hardware/docker/GPU/GUI), the INI parser
 (`_parse_ini_section`), setup.conf section merging (`_load_setup_conf`
@@ -61,7 +61,7 @@ writeback (first-time bootstrap / user-edit respect / opt-out).
 | `[build]` apt_mirror (empty fallback, override) | 2 |
 | Workspace writeback (first-time, respect user edit, opt-out) | 3 |
 
-### test/unit/tui_spec.bats (70)
+### test/unit/tui_spec.bats (73)
 
 Pure-logic unit tests for the TUI support libraries (`_tui_conf.sh`).
 No dialog/whiptail invocations here — strictly validators, mount-string
@@ -156,7 +156,7 @@ Chinese / Simplified Chinese / Japanese translations of the
 no-instances message, `--all` multi-project teardown loop, and
 fallback `_detect_lang` branches.
 
-### test/unit/compose_gen_spec.bats (35)
+### test/unit/compose_gen_spec.bats (38)
 
 Covers `generate_compose_yaml` conditional output: AUTO-GENERATED
 header, baseline workspace volume, network/ipc/privileged env-var

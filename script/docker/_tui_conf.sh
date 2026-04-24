@@ -170,6 +170,24 @@ _validate_build_network() {
   esac
 }
 
+# _validate_runtime <value>
+#
+# Validates [deploy] runtime override. Controls whether setup.sh emits
+# `runtime: nvidia` at service level in compose.yaml (needed on Jetson
+# / csv-mode nvidia-container-toolkit hosts).
+#   auto   — auto-detect Jetson (/etc/nv_tegra_release); emit on match
+#   nvidia — force emit on all hosts
+#   off    — never emit (Docker default runc)
+#   ""     — treated as off
+_validate_runtime() {
+  local _v="${1-}"
+  [[ -z "${_v}" ]] && return 0
+  case "${_v}" in
+    auto|nvidia|off) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # ════════════════════════════════════════════════════════════════════
 # Mount-string parsers
 # ════════════════════════════════════════════════════════════════════

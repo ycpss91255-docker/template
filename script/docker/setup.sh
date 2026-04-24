@@ -542,6 +542,40 @@ _resolve_gui() {
   esac
 }
 
+# _detect_jetson
+#   True if running on Jetson (JetPack / L4T) — NVIDIA ships
+#   /etc/nv_tegra_release as the canonical marker on tegra-based boards.
+#   Env override: SETUP_DETECT_JETSON=true|false forces detection result
+#   (used by tests to avoid touching /etc/).
+_detect_jetson() {
+  if [[ -n "${SETUP_DETECT_JETSON:-}" ]]; then
+    [[ "${SETUP_DETECT_JETSON}" == "true" ]]
+    return
+  fi
+  [[ -f "/etc/nv_tegra_release" ]]
+}
+
+# _resolve_runtime <mode> <outvar>
+#   mode=nvidia → "nvidia" (force, e.g. desktop with csv-mode toolkit)
+#   mode=auto   → "nvidia" iff _detect_jetson, else ""
+#   mode=off|"" → "" (no runtime key emitted; Docker default runc)
+#
+# When non-empty, setup.sh emits `runtime: <value>` at service level in
+# compose.yaml. Required on Jetson because its nvidia-container-toolkit
+# runs in csv mode, which refuses the modern `--gpus` flow that
+# `deploy.resources.reservations.devices` translates to.
+_resolve_runtime() {
+  local _mode="${1:-off}"
+  local -n _rr_out="${2:?}"
+  case "${_mode}" in
+    nvidia) _rr_out="nvidia" ;;
+    auto)
+      if _detect_jetson; then _rr_out="nvidia"; else _rr_out=""; fi
+      ;;
+    off|""|*) _rr_out="" ;;
+  esac
+}
+
 # ════════════════════════════════════════════════════════════════════
 # _compute_conf_hash <base_path> <outvar>
 #
@@ -608,6 +642,7 @@ generate_compose_yaml() {
   local _user_build_args_str="${20:-}"
   local _target_arch="${21:-}"
   local _build_network="${22:-}"
+  local _runtime="${23:-}"
 
   # TARGETARCH line emitter: only when target_arch is set. Empty =
   # omit the line entirely so BuildKit auto-fills TARGETARCH from the
@@ -625,6 +660,16 @@ generate_compose_yaml() {
   _emit_build_network_line() {
     [[ -z "${_build_network}" ]] && return 0
     printf '      network: %s\n' "${_build_network}"
+  }
+
+  # runtime emitter: Jetson / csv-mode nvidia-container-toolkit hosts
+  # need `runtime: nvidia` at service level to bypass the modern
+  # --gpus flow (which `deploy.resources.reservations.devices`
+  # translates to). Empty = omit so Docker uses the default runc.
+  # Only emitted for the devel service; test doesn't run.
+  _emit_runtime_line() {
+    [[ -z "${_runtime}" ]] && return 0
+    printf '    runtime: %s\n' "${_runtime}"
   }
 
   # Convert space-separated caps to YAML array form [a, b, c]
@@ -691,6 +736,7 @@ YAML
     stdin_open: true
     tty: true
 YAML
+    _emit_runtime_line
     # cap_add / cap_drop / security_opt from [security] section
     if [[ -n "${_cap_add_str}" ]]; then
       echo "    cap_add:"
@@ -1156,12 +1202,13 @@ main() {
   local build_network=""
   _get_conf_value _build_k _build_v "network" "" build_network
 
-  local gpu_mode="" gpu_count="" gpu_caps=""
+  local gpu_mode="" gpu_count="" gpu_caps="" runtime_mode=""
   local gui_mode=""
   local net_mode="" ipc_mode="" privileged="" network_name=""
   _get_conf_value _dep_k _dep_v "gpu_mode"         "auto" gpu_mode
   _get_conf_value _dep_k _dep_v "gpu_count"        "all"  gpu_count
   _get_conf_value _dep_k _dep_v "gpu_capabilities" "gpu"  gpu_caps
+  _get_conf_value _dep_k _dep_v "runtime"          "auto" runtime_mode
   _get_conf_value _gui_k _gui_v "mode"             "auto" gui_mode
   _get_conf_value _net_k _net_v "mode"             "host" net_mode
   _get_conf_value _net_k _net_v "ipc"              "host" ipc_mode
@@ -1350,6 +1397,9 @@ main() {
     "${target_arch}" \
     "${build_network}"
 
+  local runtime_resolved=""
+  _resolve_runtime "${runtime_mode}" runtime_resolved
+
   generate_compose_yaml "${_base_path}/compose.yaml" "${image_name}" \
     "${gui_enabled_eff}" "${gpu_enabled_eff}" \
     "${gpu_count}" "${gpu_caps}" \
@@ -1361,7 +1411,8 @@ main() {
     "${_cgroup_rule_str}" \
     "${_user_build_args_str}" \
     "${target_arch}" \
-    "${build_network}"
+    "${build_network}" \
+    "${runtime_resolved}"
 
   printf "[setup] %s\n" "$(_msg env_done)"
   printf "[setup] USER=%s (%s:%s)  GPU=%s/%s  GUI=%s/%s  IMAGE=%s  WS=%s\n" \

@@ -331,3 +331,106 @@ EOF
   assert_output --partial "setup.conf not found"
   assert_output --partial "./setup_tui.sh"
 }
+
+# ── _lib_msg / _print_config_summary i18n ──────────────────────────────────
+
+@test "_lib_msg returns English by default" {
+  run bash -c "source ${LIB}; unset _LANG; echo \"\$(_lib_msg files)|\$(_lib_msg identity)|\$(_lib_msg resolved)|\$(_lib_msg customize)\""
+  assert_success
+  assert_output "Files|Identity|Resolved|Customize"
+}
+
+@test "_lib_msg returns zh-TW translations" {
+  run bash -c "source ${LIB}; _LANG=zh-TW; echo \"\$(_lib_msg files)|\$(_lib_msg identity)|\$(_lib_msg user)|\$(_lib_msg hardware)|\$(_lib_msg gpu_enabled)|\$(_lib_msg network)\""
+  assert_success
+  assert_output "檔案|身分|使用者|硬體|GPU 已啟用|網路"
+}
+
+@test "_lib_msg returns zh-CN translations" {
+  run bash -c "source ${LIB}; _LANG=zh-CN; echo \"\$(_lib_msg files)|\$(_lib_msg user)|\$(_lib_msg hardware)|\$(_lib_msg workspace)\""
+  assert_success
+  assert_output "文件|用户|硬件|工作区"
+}
+
+@test "_lib_msg returns ja translations" {
+  run bash -c "source ${LIB}; _LANG=ja; echo \"\$(_lib_msg files)|\$(_lib_msg identity)|\$(_lib_msg user)|\$(_lib_msg hardware)\""
+  assert_success
+  assert_output "ファイル|ID|ユーザー|ハードウェア"
+}
+
+@test "_lib_msg falls back to English for unknown _LANG value" {
+  # unknown locale should not silently output empty — falls through to *:.
+  run bash -c "source ${LIB}; _LANG=de; echo \"\$(_lib_msg files)|\$(_lib_msg identity)\""
+  assert_success
+  assert_output "Files|Identity"
+}
+
+@test "_print_config_summary uses zh-TW labels when _LANG=zh-TW" {
+  local _fp="${BATS_TEST_TMPDIR}"
+  _write_sample_conf "${_fp}/setup.conf"
+  run bash -c "
+    source ${LIB}
+    _LANG=zh-TW
+    FILE_PATH='${_fp}'
+    USER_NAME=alice USER_UID=1000 USER_GROUP=alice USER_GID=1000
+    HARDWARE=aarch64 DOCKER_HUB_USER=alice IMAGE_NAME=myrepo
+    WS_PATH=/home/alice/work
+    GPU_ENABLED=true GPU_COUNT=all GPU_CAPABILITIES='gpu compute'
+    SETUP_GUI_DETECTED=false NETWORK_MODE=host IPC_MODE=host PRIVILEGED=true
+    TZ=Asia/Taipei APT_MIRROR_UBUNTU=tw.archive.ubuntu.com
+    APT_MIRROR_DEBIAN=mirror.twds.com.tw
+    PROJECT_NAME=alice-myrepo
+    _print_config_summary run
+  "
+  assert_success
+  # Translated section headings
+  assert_output --partial "[run] 檔案"
+  assert_output --partial "[run] 身分"
+  assert_output --partial "[run] 解析結果"
+  # Translated field labels
+  assert_output --partial "使用者"
+  assert_output --partial "硬體"
+  assert_output --partial "工作區"
+  assert_output --partial "GPU 已啟用"
+  assert_output --partial "GUI 已啟用"
+  assert_output --partial "網路"
+  assert_output --partial "特權"
+  # Customize hint translated
+  assert_output --partial "自訂:"
+  # English key labels preserved (technical terms / .env var names)
+  assert_output --partial "TZ=Asia/Taipei"
+  assert_output --partial "ipc=host"
+}
+
+@test "_print_config_summary uses ja labels when _LANG=ja" {
+  local _fp="${BATS_TEST_TMPDIR}"
+  _write_sample_conf "${_fp}/setup.conf"
+  run bash -c "
+    source ${LIB}
+    _LANG=ja
+    FILE_PATH='${_fp}'
+    USER_NAME=alice USER_UID=1000 USER_GROUP=alice USER_GID=1000
+    HARDWARE=x86_64 DOCKER_HUB_USER=alice IMAGE_NAME=myrepo
+    WS_PATH=/home/alice/work
+    GPU_ENABLED=true GPU_COUNT=all GPU_CAPABILITIES='gpu'
+    SETUP_GUI_DETECTED=true NETWORK_MODE=host IPC_MODE=host PRIVILEGED=false
+    PROJECT_NAME=alice-myrepo
+    _print_config_summary build
+  "
+  assert_success
+  assert_output --partial "[build] ファイル"
+  assert_output --partial "[build] ID"
+  assert_output --partial "[build] 解決済み"
+  assert_output --partial "ユーザー"
+  assert_output --partial "ハードウェア"
+  assert_output --partial "ワークスペース"
+}
+
+@test "_print_config_summary conf_missing hint is translated (zh-TW)" {
+  local _fp="${BATS_TEST_TMPDIR}/no_conf_zh"
+  mkdir -p "${_fp}"
+  run bash -c "source ${LIB}; _LANG=zh-TW; FILE_PATH='${_fp}'; _print_config_summary build"
+  assert_success
+  assert_output --partial "找不到 setup.conf"
+  assert_output --partial "./build.sh --setup"
+}

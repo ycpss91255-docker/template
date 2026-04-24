@@ -488,6 +488,54 @@ EOF
 }
 
 # ════════════════════════════════════════════════════════════════════
+# _resolve_runtime / _detect_jetson (Jetson NVIDIA runtime)
+# ════════════════════════════════════════════════════════════════════
+
+@test "_detect_jetson honors SETUP_DETECT_JETSON=true override" {
+  SETUP_DETECT_JETSON=true _detect_jetson
+}
+
+@test "_detect_jetson honors SETUP_DETECT_JETSON=false override" {
+  ! SETUP_DETECT_JETSON=false _detect_jetson
+}
+
+@test "_resolve_runtime auto on Jetson => nvidia" {
+  local _out
+  SETUP_DETECT_JETSON=true _resolve_runtime "auto" _out
+  assert_equal "${_out}" "nvidia"
+}
+
+@test "_resolve_runtime auto off Jetson => empty" {
+  local _out
+  SETUP_DETECT_JETSON=false _resolve_runtime "auto" _out
+  assert_equal "${_out}" ""
+}
+
+@test "_resolve_runtime nvidia => always nvidia" {
+  local _out
+  SETUP_DETECT_JETSON=false _resolve_runtime "nvidia" _out
+  assert_equal "${_out}" "nvidia"
+}
+
+@test "_resolve_runtime off => empty" {
+  local _out
+  SETUP_DETECT_JETSON=true _resolve_runtime "off" _out
+  assert_equal "${_out}" ""
+}
+
+@test "_resolve_runtime empty => empty" {
+  local _out
+  SETUP_DETECT_JETSON=true _resolve_runtime "" _out
+  assert_equal "${_out}" ""
+}
+
+@test "_resolve_runtime unknown mode falls through to empty (safe default)" {
+  local _out
+  SETUP_DETECT_JETSON=true _resolve_runtime "garbage" _out
+  assert_equal "${_out}" ""
+}
+
+# ════════════════════════════════════════════════════════════════════
 # detect_image_name (now reads [image] rules from setup.conf)
 # ════════════════════════════════════════════════════════════════════
 

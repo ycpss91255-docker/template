@@ -458,3 +458,47 @@ teardown() {
   run grep -F 'device_cgroup_rules:' "${COMPOSE_OUT}"
   assert_failure
 }
+
+# ════════════════════════════════════════════════════════════════════
+# [deploy] runtime → compose.yaml service-level runtime key (Jetson)
+# ════════════════════════════════════════════════════════════════════
+
+@test "generate_compose_yaml omits runtime: when runtime arg is empty (desktop default)" {
+  local _extras=()
+  generate_compose_yaml "${COMPOSE_OUT}" "myrepo" \
+    "false" "false" "0" "gpu" _extras
+  run grep -E '^    runtime:' "${COMPOSE_OUT}"
+  assert_failure
+}
+
+@test "generate_compose_yaml emits runtime: nvidia under devel when runtime=nvidia" {
+  local _extras=()
+  # positional args 1..22 unchanged; 23rd is _runtime.
+  generate_compose_yaml "${COMPOSE_OUT}" "myrepo" \
+    "false" "true" "all" "gpu" _extras "" \
+    "" "" "" "" \
+    "" "host" "host" "" "" "" \
+    "" "" "" "" \
+    "nvidia"
+  run grep -F '    runtime: nvidia' "${COMPOSE_OUT}"
+  assert_success
+  # Only in devel (one occurrence); test service must not get runtime:
+  [ "$(grep -c '^    runtime:' "${COMPOSE_OUT}")" = "1" ]
+}
+
+@test "generate_compose_yaml placement: runtime: appears between tty and cap_add region" {
+  local _extras=()
+  generate_compose_yaml "${COMPOSE_OUT}" "myrepo" \
+    "false" "true" "all" "gpu" _extras "" \
+    "" "" "" "" \
+    "" "host" "host" "SYS_ADMIN" "" "" \
+    "" "" "" "" \
+    "nvidia"
+  # runtime: must appear after `tty: true` and before `cap_add:` in devel
+  local _tty_line _runtime_line _cap_line
+  _tty_line="$(grep -n '^    tty: true' "${COMPOSE_OUT}" | head -1 | cut -d: -f1)"
+  _runtime_line="$(grep -n '^    runtime:' "${COMPOSE_OUT}" | head -1 | cut -d: -f1)"
+  _cap_line="$(grep -n '^    cap_add:' "${COMPOSE_OUT}" | head -1 | cut -d: -f1)"
+  (( _tty_line < _runtime_line ))
+  (( _runtime_line < _cap_line ))
+}

@@ -122,6 +122,10 @@ declare -gA _TUI_MSG_EN=(
   [deploy.caps.compute]="compute (CUDA compute)"
   [deploy.caps.utility]="utility (nvidia-smi, monitoring)"
   [deploy.caps.graphics]="graphics (OpenGL, Vulkan)"
+  [deploy.runtime.prompt]="Docker runtime override (Jetson / csv-mode toolkit)"
+  [deploy.runtime.auto]="auto (emit runtime: nvidia on Jetson — /etc/nv_tegra_release)"
+  [deploy.runtime.nvidia]="nvidia (force emit on all hosts)"
+  [deploy.runtime.off]="off (no runtime override — Docker default runc)"
   [deploy.mig.title]="Deploy — NVIDIA MIG detected"
   [deploy.mig.warning]=$'NVIDIA MIG (Multi-Instance GPU) mode is enabled on this host.\n\nDocker\'s deploy `count=N` reservation addresses whole GPUs; it cannot pin a specific MIG slice. To target one slice, leave count as-is and add to the [environment] section:\n  NVIDIA_VISIBLE_DEVICES=<MIG-UUID>\n\nAvailable GPU / MIG instances:\n%s'
   [gui.title]="GUI"
@@ -168,6 +172,7 @@ declare -gA _TUI_MSG_EN=(
   [err.invalid_mount]="Invalid mount format (expected <host>:<container>[:ro|rw])"
   [err.invalid_cgroup_rule]="Invalid cgroup rule (expected: <c|b|a> <major>:<minor|*> <r|w|m>)"
   [err.invalid_gpu_count]="Invalid GPU count (expected 'all' or a positive integer)"
+  [err.invalid_runtime]="Invalid runtime (expected 'auto', 'nvidia', or 'off')"
   [err.invalid_shm_size]=$'Invalid shm_size\n  - Expected: <num><unit>\n  - Units: b, k/kb, m/mb, g/gb (case-insensitive)\n  - Example: 2gb, 512mb'
   [err.invalid_port_mapping]=$'Invalid port mapping\n  - Expected: <host>:<container>[/tcp|udp]\n  - Example: 8080:80, 5000:5000/udp'
   [err.invalid_env_kv]=$'Invalid env var\n  - Expected: KEY=VALUE\n  - KEY must start with letter or _ and contain only [A-Za-z0-9_]'
@@ -270,6 +275,10 @@ declare -gA _TUI_MSG_ZH_TW=(
   [deploy.caps.compute]="compute（CUDA 運算）"
   [deploy.caps.utility]="utility（nvidia-smi、監控）"
   [deploy.caps.graphics]="graphics（OpenGL、Vulkan）"
+  [deploy.runtime.prompt]="Docker runtime 覆寫（Jetson / csv 模式 toolkit）"
+  [deploy.runtime.auto]="auto（Jetson 自動輸出 runtime: nvidia — /etc/nv_tegra_release）"
+  [deploy.runtime.nvidia]="nvidia（所有主機強制輸出）"
+  [deploy.runtime.off]="off（不覆寫 — Docker 預設 runc）"
   [deploy.mig.title]="Deploy — 偵測到 NVIDIA MIG"
   [deploy.mig.warning]=$'此主機已啟用 NVIDIA MIG（Multi-Instance GPU）模式。\n\nDocker 的 deploy `count=N` 只能預留整張 GPU，無法指定特定 MIG slice。若要使用單一 slice，請維持 count 不變，並在 [environment] 區塊加入：\n  NVIDIA_VISIBLE_DEVICES=<MIG-UUID>\n\n主機上的 GPU / MIG 實例：\n%s'
   [gui.title]="GUI"
@@ -316,6 +325,7 @@ declare -gA _TUI_MSG_ZH_TW=(
   [err.invalid_mount]="掛載格式錯誤（預期 <host>:<container>[:ro|rw]）"
   [err.invalid_cgroup_rule]="Cgroup 規則格式錯誤（預期：<c|b|a> <major>:<minor|*> <r|w|m>）"
   [err.invalid_gpu_count]="GPU 數量格式錯誤（預期 'all' 或正整數）"
+  [err.invalid_runtime]="runtime 值不合法（預期 'auto'、'nvidia' 或 'off'）"
   [err.invalid_shm_size]=$'shm_size 格式錯誤\n  - 預期：<數字><單位>\n  - 單位：b、k/kb、m/mb、g/gb（大小寫不限）\n  - 範例：2gb、512mb'
   [err.invalid_port_mapping]=$'Port 映射格式錯誤\n  - 預期：<host>:<container>[/tcp|udp]\n  - 範例：8080:80、5000:5000/udp'
   [err.invalid_env_kv]=$'環境變數格式錯誤\n  - 預期：KEY=VALUE\n  - KEY 需以字母或 _ 開頭，僅含 [A-Za-z0-9_]'
@@ -416,6 +426,10 @@ declare -gA _TUI_MSG_ZH_CN=(
   [deploy.caps.compute]="compute（CUDA 计算）"
   [deploy.caps.utility]="utility（nvidia-smi、监控）"
   [deploy.caps.graphics]="graphics（OpenGL、Vulkan）"
+  [deploy.runtime.prompt]="Docker runtime 覆盖（Jetson / csv 模式 toolkit）"
+  [deploy.runtime.auto]="auto（Jetson 自动输出 runtime: nvidia — /etc/nv_tegra_release）"
+  [deploy.runtime.nvidia]="nvidia（所有主机强制输出）"
+  [deploy.runtime.off]="off（不覆盖 — Docker 默认 runc）"
   [deploy.mig.title]="Deploy — 检测到 NVIDIA MIG"
   [deploy.mig.warning]=$'此主机已启用 NVIDIA MIG（Multi-Instance GPU）模式。\n\nDocker 的 deploy `count=N` 只能预留整张 GPU，无法指定特定 MIG slice。若要使用单一 slice，请保持 count 不变，并在 [environment] 区块加入：\n  NVIDIA_VISIBLE_DEVICES=<MIG-UUID>\n\n主机上的 GPU / MIG 实例：\n%s'
   [gui.title]="GUI"
@@ -462,6 +476,7 @@ declare -gA _TUI_MSG_ZH_CN=(
   [err.invalid_mount]="挂载格式错误（预期 <host>:<container>[:ro|rw]）"
   [err.invalid_cgroup_rule]="Cgroup 规则格式错误（预期：<c|b|a> <major>:<minor|*> <r|w|m>）"
   [err.invalid_gpu_count]="GPU 数量格式错误（预期 'all' 或正整数）"
+  [err.invalid_runtime]="runtime 值不合法（预期 'auto'、'nvidia' 或 'off'）"
   [err.no_backend]="未安装 dialog 或 whiptail，请执行：sudo apt install dialog"
   [saved]="已保存至 %s，正在重新生成 .env + compose.yaml..."
   [action.prompt]="选择动作"
@@ -557,6 +572,10 @@ declare -gA _TUI_MSG_JA=(
   [deploy.caps.compute]="compute（CUDA 計算）"
   [deploy.caps.utility]="utility（nvidia-smi、監視）"
   [deploy.caps.graphics]="graphics（OpenGL、Vulkan）"
+  [deploy.runtime.prompt]="Docker ランタイムオーバーライド（Jetson / csv モード toolkit）"
+  [deploy.runtime.auto]="auto（Jetson で自動的に runtime: nvidia を出力 — /etc/nv_tegra_release）"
+  [deploy.runtime.nvidia]="nvidia（全ホストで強制出力）"
+  [deploy.runtime.off]="off（オーバーライドなし — Docker 既定の runc）"
   [deploy.mig.title]="Deploy — NVIDIA MIG を検出"
   [deploy.mig.warning]=$'このホストでは NVIDIA MIG（Multi-Instance GPU）モードが有効です。\n\nDocker の deploy `count=N` は GPU 単位の予約であり、特定の MIG スライスを指定できません。特定スライスを使う場合は count を変更せず、[environment] セクションに次を追加してください：\n  NVIDIA_VISIBLE_DEVICES=<MIG-UUID>\n\nホストで利用可能な GPU / MIG インスタンス：\n%s'
   [gui.title]="GUI"
@@ -603,6 +622,7 @@ declare -gA _TUI_MSG_JA=(
   [err.invalid_mount]="マウント形式が不正（<host>:<container>[:ro|rw] を期待）"
   [err.invalid_cgroup_rule]="Cgroup ルール形式が不正（<c|b|a> <major>:<minor|*> <r|w|m> を期待）"
   [err.invalid_gpu_count]="GPU 数が不正（'all' または正の整数を期待）"
+  [err.invalid_runtime]="無効な runtime（'auto'、'nvidia'、'off' のいずれか）"
   [err.no_backend]="dialog または whiptail がインストールされていません：sudo apt install dialog"
   [saved]="%s に保存しました。.env + compose.yaml を再生成中..."
   [action.prompt]="アクションを選択"
@@ -1222,6 +1242,19 @@ _edit_section_deploy() {
   _v="$(echo "${_v}" | tr '\n' ' ' | sed -e 's/ *$//')"
   [[ -z "${_v}" ]] && _v="gpu"
   _override_set "deploy.gpu_capabilities" "${_v}"
+
+  # runtime override (Jetson / csv-mode nvidia-container-toolkit).
+  _cur="$(_override_get "deploy.runtime" "auto")"
+  _v="$(_tui_select "$(_tui_msg deploy.title)" "$(_tui_msg deploy.runtime.prompt)" \
+    auto   "$(_tui_msg deploy.runtime.auto)"   "$([[ "${_cur}" == auto ]]   && echo ON || echo off)" \
+    nvidia "$(_tui_msg deploy.runtime.nvidia)" "$([[ "${_cur}" == nvidia ]] && echo ON || echo off)" \
+    off    "$(_tui_msg deploy.runtime.off)"    "$([[ "${_cur}" == off ]]    && echo ON || echo off)")" \
+    || return 0
+  if _validate_runtime "${_v}"; then
+    _override_set "deploy.runtime" "${_v}"
+  else
+    _tui_msgbox "$(_tui_msg deploy.title)" "$(_tui_msg err.invalid_runtime)"
+  fi
 }
 
 _edit_section_gui() {
