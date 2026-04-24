@@ -1,6 +1,6 @@
 # TEST.md
 
-Template self-tests: **663 tests** total (620 unit + 43 integration).
+Template self-tests: **664 tests** total (621 unit + 43 integration).
 
 ## Test Files
 
@@ -181,7 +181,7 @@ conditional GPU deploy block + GUI env/volumes + extra volumes from
 | `empty extras => no extra mount lines` | empty list |
 | `with GUI+GPU+extras => all sections present` | fully loaded |
 
-### test/unit/template_spec.bats (114)
+### test/unit/template_spec.bats (115)
 
 | Test | Description |
 |------|-------------|
@@ -289,6 +289,7 @@ conditional GPU deploy block + GUI env/volumes + extra volumes from
 | `release-test-tools.yaml exists and pushes to ghcr.io/ycpss91255-docker/test-tools` | GHCR publisher |
 | `release-test-tools.yaml declares packages:write permission` | ghcr auth scope |
 | `release-test-tools.yaml builds multi-arch (amd64 + arm64)` | arch coverage |
+| `release-test-tools.yaml uses template-repo-local Dockerfile path` | no subtree path confusion |
 | `run.sh contains XDG_SESSION_TYPE check` | X11/Wayland branch |
 | `run.sh contains xhost +SI:localuser for wayland` | Wayland xhost |
 | `run.sh contains xhost +local: for X11` | X11 xhost |

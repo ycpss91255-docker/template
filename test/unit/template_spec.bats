@@ -797,6 +797,19 @@ EOF
   assert_success
 }
 
+@test "release-test-tools.yaml uses template-repo-local Dockerfile path" {
+  # Regression: this workflow runs in the template repo, so Dockerfile.test-tools
+  # path must be `dockerfile/...` (not `template/dockerfile/...` which is the
+  # downstream subtree path used by build-worker.yaml).
+  local _yaml="/source/.github/workflows/release-test-tools.yaml"
+  [[ -f "${_yaml}" ]] || skip "release-test-tools.yaml not present in /source"
+  run grep -E '^\s*file: dockerfile/Dockerfile\.test-tools$' "${_yaml}"
+  assert_success
+  # And must NOT have the subtree-prefixed path:
+  run grep -c 'file: template/dockerfile/Dockerfile.test-tools' "${_yaml}"
+  assert_output "0"
+}
+
 # ════════════════════════════════════════════════════════════════════
 # run.sh: XDG_SESSION_TYPE branching
 # ════════════════════════════════════════════════════════════════════

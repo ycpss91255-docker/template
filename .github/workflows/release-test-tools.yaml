@@ -59,10 +59,15 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push multi-arch test-tools image
+        # This workflow runs inside the template repo, not a downstream
+        # consumer, so the Dockerfile lives at `dockerfile/...`, not
+        # `template/dockerfile/...` (the latter is only the subtree path
+        # downstream repos see and is what build-worker.yaml uses since
+        # that workflow executes in the downstream's checkout).
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: template/dockerfile/Dockerfile.test-tools
+          file: dockerfile/Dockerfile.test-tools
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.tags.outputs.tags }}
           push: true
