@@ -1,6 +1,6 @@
 # TEST.md
 
-Template self-tests: **677 tests** total (634 unit + 43 integration).
+Template self-tests: **685 tests** total (642 unit + 43 integration).
 
 ## Test Files
 
@@ -92,7 +92,7 @@ a canned response; exercised with `TUI_STUB_RESPONSE` / `TUI_STUB_EXIT`.
 | `_tui_checklist` (passes `--separate-output`) | 1 |
 | `_tui_msgbox` / `_tui_yesno` (correct flags, propagates exit code) | 2 |
 
-### test/unit/build_sh_spec.bats (32)
+### test/unit/build_sh_spec.bats (35)
 
 Unit tests for `build.sh` argument handling and control flow. Uses a
 sandbox tree mirroring the expected layout (build.sh + `template/` subtree
@@ -346,7 +346,7 @@ conditional GPU deploy block + GUI env/volumes + extra volumes from
 | `_run_shellcheck: picks up every .sh file in script/docker/` | `find` covers new scripts |
 | `_run_shellcheck: exits non-zero when shellcheck fails on any script` | Strict-mode propagation |
 
-### test/unit/init_spec.bats (13)
+### test/unit/init_spec.bats (18)
 
 Unit coverage for `init.sh` helpers that previous rounds exercised only
 through the Level-1 integration test. Complements

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`--reset-conf` flag** on `build.sh` (closes #124). Overwrites `setup.conf` with the template default, backing up the previous `setup.conf` → `setup.conf.bak` and `.env` → `.env.bak` first. Interactive confirmation prompt; `-y` / `--yes` skips it. Internally delegates to the new `./template/init.sh --gen-conf --force` backend. Triggers a `setup.sh` rerun afterward so `.env` + `compose.yaml` regenerate from the fresh conf.
+- `./template/init.sh --gen-conf --force` — backend for the above. Without `--force`, `--gen-conf` still refuses to clobber an existing `setup.conf` (unchanged default).
+- New-repo `.gitignore` template gains `setup.conf.bak` and `.env.bak` entries so the reset backups never get committed by accident.
+
 ### Fixed
 - **`upgrade.sh` main.yaml sed regex now handles semver pre-release tags** (closes #61). The prior `[0-9.]*` character class stopped at the first `-`, so upgrading from an existing RC tag (e.g. `v0.10.0-rc1` → `-rc2`) left the old `-rcN` suffix in place and produced `@v0.10.0-rc2-rc1`. First surfaced when ros1_bridge ran `./template/upgrade.sh v0.10.0-rc2` from `@v0.9.13`. Regex now anchored on full semver shape (`\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?`). Two regression tests added covering RC → RC and RC → stable transitions.
 

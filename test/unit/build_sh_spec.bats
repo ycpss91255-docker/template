@@ -501,3 +501,34 @@ EOS
   assert_failure
   assert_output --partial "エラー"
 }
+
+# ════════════════════════════════════════════════════════════════════
+# --reset-conf flag (issue #60 / #124)
+# ════════════════════════════════════════════════════════════════════
+
+@test "build.sh --reset-conf --yes --dry-run prints init.sh --gen-conf --force cmd" {
+  # -y skips the interactive prompt; --dry-run makes the init.sh call
+  # a printf instead of an exec so we can assert it without sandbox
+  # side effects.
+  echo "old" > "${SANDBOX}/setup.conf"
+  run bash "${SANDBOX}/build.sh" --reset-conf --yes --dry-run
+  assert_success
+  assert_output --partial "[dry-run]"
+  assert_output --partial "template/init.sh --gen-conf --force"
+}
+
+@test "build.sh --reset-conf is mentioned in usage help" {
+  run bash "${SANDBOX}/build.sh" --help
+  assert_success
+  assert_output --partial "--reset-conf"
+  assert_output --partial "setup.conf.bak"
+}
+
+@test "build.sh --reset-conf with no existing setup.conf / .env skips prompt" {
+  # Nothing to overwrite → no confirmation needed, --dry-run just prints
+  # the init.sh call and exits cleanly.
+  rm -f "${SANDBOX}/setup.conf" "${SANDBOX}/.env"
+  run bash "${SANDBOX}/build.sh" --reset-conf --dry-run
+  assert_success
+  refute_output --partial "proceed?"
+}
