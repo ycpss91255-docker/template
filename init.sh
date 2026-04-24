@@ -202,10 +202,14 @@ jobs:
 YAML
   _log "  Created .github/workflows/main.yaml"
 
-  # .gitignore (compose.yaml + .env are setup.sh-generated artifacts)
+  # .gitignore (compose.yaml + .env are setup.sh-generated artifacts;
+  # *.bak siblings are written by `./template/init.sh --gen-conf --force`
+  # on a reset-conf, see #124 / issue #60 — keep them local-only.)
   cat > .gitignore <<'GIT'
 .env
+.env.bak
 compose.yaml
+setup.conf.bak
 coverage/
 .Dockerfile.generated
 GIT
@@ -278,13 +282,28 @@ _init_existing_repo() {
 _gen_setup_conf() {
   local _src="${TEMPLATE_DIR}/setup.conf"
   local _dst="${REPO_ROOT}/setup.conf"
+  local _force="${1:-false}"
   if [[ ! -f "${_src}" ]]; then
     _error "Template setup.conf not found at ${_src}"
   fi
   if [[ -f "${_dst}" ]]; then
-    _error "setup.conf already exists at ${_dst}. Remove it first or edit directly."
+    if [[ "${_force}" != "true" ]]; then
+      _error "setup.conf already exists at ${_dst}. Remove it first or edit directly."
+    fi
+    # --force path: back up the existing conf (and .env, since a reset
+    # will regenerate it from the new conf baseline) to *.bak siblings
+    # before overwriting. `.gitignore` ignores these so they never get
+    # committed by accident.
+    local _bak="${_dst}.bak"
+    cp -f "${_dst}" "${_bak}"
+    _log "Backed up existing setup.conf → ${_bak}"
+    if [[ -f "${REPO_ROOT}/.env" ]]; then
+      local _env_bak="${REPO_ROOT}/.env.bak"
+      cp -f "${REPO_ROOT}/.env" "${_env_bak}"
+      _log "Backed up existing .env → ${_env_bak}"
+    fi
   fi
-  cp "${_src}" "${_dst}"
+  cp -f "${_src}" "${_dst}"
   _log "Created ${_dst}"
   _log "Edit it to customize runtime settings for this repo."
 }
@@ -310,7 +329,7 @@ _error() { printf "[init] ERROR: %s\n" "$*" >&2; exit 1; }
 main() {
   if [[ "${1:-}" =~ ^(-h|--help)$ ]]; then
     cat >&2 <<'EOF'
-Usage: ./template/init.sh [--gen-conf]
+Usage: ./template/init.sh [--gen-conf [--force]]
 
 Initialize a repo with template. Auto-detects:
   - Has Dockerfile → create symlinks, then run setup.sh
@@ -322,7 +341,10 @@ Options:
   --gen-conf         Copy template/setup.conf to <repo>/setup.conf so the
                      user can override any section (image / build / deploy /
                      gui / network / volumes). Refuses to overwrite an
-                     existing per-repo setup.conf.
+                     existing per-repo setup.conf unless --force is given.
+  --force            With --gen-conf: overwrite existing setup.conf,
+                     backing up the previous setup.conf to setup.conf.bak
+                     and .env to .env.bak first.
 
 Run from the repo root after:
   git subtree add --prefix=template \
@@ -334,7 +356,9 @@ EOF
   cd "${REPO_ROOT}"
 
   if [[ "${1:-}" == "--gen-conf" ]]; then
-    _gen_setup_conf
+    local _force=false
+    [[ "${2:-}" == "--force" ]] && _force=true
+    _gen_setup_conf "${_force}"
     return 0
   fi
 

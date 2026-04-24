@@ -49,12 +49,15 @@ usage() {
   case "${_LANG}" in
     zh-TW)
       cat >&2 <<'EOF'
-用法: ./build.sh [-h] [-s|--setup] [--no-cache] [--clean-tools] [--dry-run] [--lang <en|zh-TW|zh-CN|ja>] [TARGET]
+用法: ./build.sh [-h] [-s|--setup] [--reset-conf] [-y|--yes] [--no-cache] [--clean-tools] [--dry-run] [--lang <en|zh-TW|zh-CN|ja>] [TARGET]
 
 選項:
   -h, --help     顯示此說明
   -s, --setup    強制重跑 setup.sh 重新生成 .env + compose.yaml
                  （預設：.env 不存在時自動 bootstrap；存在時僅印 drift warning）
+  --reset-conf   用 template 預設值覆蓋 setup.conf（先備份到 setup.conf.bak
+                 + .env.bak；需確認，可用 -y 跳過）。之後會自動重跑 setup。
+  -y, --yes      略過 --reset-conf 的互動確認
   --no-cache     強制不使用 cache 重建
   --clean-tools  build 結束後移除 test-tools:local image（預設保留以加速下次 build）
   --dry-run      只印出將執行的 docker 指令，不實際執行
@@ -68,12 +71,15 @@ EOF
       ;;
     zh-CN)
       cat >&2 <<'EOF'
-用法: ./build.sh [-h] [-s|--setup] [--no-cache] [--clean-tools] [--dry-run] [--lang <en|zh-TW|zh-CN|ja>] [TARGET]
+用法: ./build.sh [-h] [-s|--setup] [--reset-conf] [-y|--yes] [--no-cache] [--clean-tools] [--dry-run] [--lang <en|zh-TW|zh-CN|ja>] [TARGET]
 
 选项:
   -h, --help     显示此说明
   -s, --setup    强制重跑 setup.sh 重新生成 .env + compose.yaml
                  （默认：.env 不存在时自动 bootstrap；存在时仅打印 drift warning）
+  --reset-conf   用 template 默认值覆盖 setup.conf（先备份到 setup.conf.bak
+                 + .env.bak；需确认，可用 -y 跳过）。之后会自动重跑 setup。
+  -y, --yes      跳过 --reset-conf 的交互确认
   --no-cache     强制不使用 cache 重建
   --clean-tools  build 结束后移除 test-tools:local image（默认保留以加速下次 build）
   --dry-run      只打印将执行的 docker 命令，不实际执行
@@ -87,12 +93,16 @@ EOF
       ;;
     ja)
       cat >&2 <<'EOF'
-使用法: ./build.sh [-h] [-s|--setup] [--no-cache] [--clean-tools] [--dry-run] [--lang <en|zh-TW|zh-CN|ja>] [TARGET]
+使用法: ./build.sh [-h] [-s|--setup] [--reset-conf] [-y|--yes] [--no-cache] [--clean-tools] [--dry-run] [--lang <en|zh-TW|zh-CN|ja>] [TARGET]
 
 オプション:
   -h, --help     このヘルプを表示
   -s, --setup    setup.sh を強制実行して .env + compose.yaml を再生成
                  （デフォルト：.env が無ければ自動 bootstrap、あれば drift warning のみ）
+  --reset-conf   setup.conf をテンプレのデフォルトで上書き（setup.conf.bak
+                 + .env.bak にバックアップ；確認プロンプト、-y でスキップ）。
+                 その後 setup を再実行。
+  -y, --yes      --reset-conf の確認プロンプトをスキップ
   --no-cache     キャッシュを使わず強制リビルド
   --clean-tools  build 終了後に test-tools:local image を削除（デフォルトは保持）
   --dry-run      実行される docker コマンドを表示するのみ（実行はしない）
@@ -106,12 +116,18 @@ EOF
       ;;
     *)
       cat >&2 <<'EOF'
-Usage: ./build.sh [-h] [-s|--setup] [--no-cache] [--clean-tools] [--dry-run] [--lang <en|zh-TW|zh-CN|ja>] [TARGET]
+Usage: ./build.sh [-h] [-s|--setup] [--reset-conf] [-y|--yes] [--no-cache] [--clean-tools] [--dry-run] [--lang <en|zh-TW|zh-CN|ja>] [TARGET]
 
 Options:
   -h, --help     Show this help
   -s, --setup    Force rerun setup.sh to regenerate .env + compose.yaml
                  (default: auto-bootstrap if .env missing; warn on drift if present)
+  --reset-conf   Overwrite setup.conf with template defaults (backs up the
+                 existing setup.conf → setup.conf.bak and .env → .env.bak
+                 first). Prompts for confirmation; pass -y to skip. Triggers
+                 a setup.sh rerun afterward so .env + compose.yaml follow
+                 the fresh conf.
+  -y, --yes      Skip the --reset-conf confirmation prompt
   --no-cache     Force rebuild without cache
   --clean-tools  Remove test-tools:local image after build (default: keep for faster next build)
   --dry-run      Print the docker commands that would run, but do not execute
@@ -129,6 +145,8 @@ EOF
 
 main() {
   local RUN_SETUP=false
+  local RESET_CONF=false
+  local ASSUME_YES=false
   local NO_CACHE=false
   local CLEAN_TOOLS=false
   local TARGET="devel"
@@ -141,6 +159,14 @@ main() {
         ;;
       -s|--setup)
         RUN_SETUP=true
+        shift
+        ;;
+      --reset-conf)
+        RESET_CONF=true
+        shift
+        ;;
+      -y|--yes)
+        ASSUME_YES=true
         shift
         ;;
       --no-cache)
@@ -167,6 +193,38 @@ main() {
     esac
   done
   export DRY_RUN
+
+  # --reset-conf: delegate to init.sh --gen-conf --force. Confirms unless
+  # -y/--yes is passed. Backs up the existing setup.conf + .env to
+  # *.bak siblings (git-ignored) before overwriting, so the reset is
+  # recoverable. Runs before the normal bootstrap/drift flow below so
+  # subsequent setup.sh invocation regenerates .env + compose.yaml from
+  # the fresh conf.
+  if [[ "${RESET_CONF}" == true ]]; then
+    local _conf="${FILE_PATH}/setup.conf"
+    local _env="${FILE_PATH}/.env"
+    if [[ -f "${_conf}" || -f "${_env}" ]]; then
+      if [[ "${ASSUME_YES}" != true && "${DRY_RUN}" != true ]]; then
+        printf "[build] --reset-conf will overwrite:\n" >&2
+        [[ -f "${_conf}" ]] && printf "  %s (backup → %s.bak)\n" "${_conf}" "${_conf}" >&2
+        [[ -f "${_env}"  ]] && printf "  %s (backup → %s.bak)\n" "${_env}" "${_env}" >&2
+        printf "[build] proceed? [y/N] " >&2
+        local _reply
+        read -r _reply
+        case "${_reply}" in
+          y|Y|yes|YES) ;;
+          *) printf "[build] aborted.\n" >&2; exit 1 ;;
+        esac
+      fi
+    fi
+    if [[ "${DRY_RUN}" == true ]]; then
+      printf "[dry-run] %s/template/init.sh --gen-conf --force\n" "${FILE_PATH}"
+    else
+      bash "${FILE_PATH}/template/init.sh" --gen-conf --force
+    fi
+    # Force a fresh setup.sh run so .env + compose.yaml follow the new conf.
+    RUN_SETUP=true
+  fi
 
   local _setup="${FILE_PATH}/template/script/docker/setup.sh"
   local _tui="${FILE_PATH}/setup_tui.sh"

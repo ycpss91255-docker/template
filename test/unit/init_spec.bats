@@ -219,3 +219,67 @@ REMOTE
   # Custom file should still be a regular file, not a symlink
   assert [ ! -L "${TMP_REPO}/.hadolint.yaml" ]
 }
+
+# ════════════════════════════════════════════════════════════════════
+# _gen_setup_conf --force (reset path, issue #124 / #60)
+# ════════════════════════════════════════════════════════════════════
+
+@test "_gen_setup_conf default refuses to overwrite existing setup.conf" {
+  printf "[image]\nrules = @basename\n" > "${TMP_REPO}/template/setup.conf"
+  echo "existing user config" > "${TMP_REPO}/setup.conf"
+  _source_init
+  run _gen_setup_conf "false"
+  assert_failure
+  assert_output --partial "already exists"
+}
+
+@test "_gen_setup_conf --force overwrites and backs up existing setup.conf" {
+  printf "[image]\nrules = @basename\n" > "${TMP_REPO}/template/setup.conf"
+  echo "old user conf" > "${TMP_REPO}/setup.conf"
+  _source_init
+  run _gen_setup_conf "true"
+  assert_success
+  # new setup.conf must come from template
+  run cat "${TMP_REPO}/setup.conf"
+  assert_output --partial "rules = @basename"
+  # backup must contain the pre-overwrite user content
+  assert [ -f "${TMP_REPO}/setup.conf.bak" ]
+  run cat "${TMP_REPO}/setup.conf.bak"
+  assert_output "old user conf"
+}
+
+@test "_gen_setup_conf --force also backs up .env to .env.bak" {
+  printf "[image]\nrules = @basename\n" > "${TMP_REPO}/template/setup.conf"
+  echo "user conf" > "${TMP_REPO}/setup.conf"
+  echo "USER_NAME=existing" > "${TMP_REPO}/.env"
+  _source_init
+  run _gen_setup_conf "true"
+  assert_success
+  assert [ -f "${TMP_REPO}/.env.bak" ]
+  run cat "${TMP_REPO}/.env.bak"
+  assert_output "USER_NAME=existing"
+}
+
+@test "_gen_setup_conf --force on clean repo does not create spurious .bak" {
+  # No pre-existing setup.conf → first-time provision, nothing to back up.
+  printf "[image]\nrules = @basename\n" > "${TMP_REPO}/template/setup.conf"
+  rm -f "${TMP_REPO}/setup.conf" "${TMP_REPO}/.env"
+  _source_init
+  run _gen_setup_conf "true"
+  assert_success
+  assert [ ! -f "${TMP_REPO}/setup.conf.bak" ]
+  assert [ ! -f "${TMP_REPO}/.env.bak" ]
+}
+
+# ════════════════════════════════════════════════════════════════════
+# _create_new_repo .gitignore covers the *.bak siblings
+# ════════════════════════════════════════════════════════════════════
+
+@test "_create_new_repo: .gitignore includes setup.conf.bak and .env.bak" {
+  _source_init
+  _create_new_repo "main"
+  run grep -Fxq setup.conf.bak "${TMP_REPO}/.gitignore"
+  assert_success
+  run grep -Fxq .env.bak "${TMP_REPO}/.gitignore"
+  assert_success
+}
