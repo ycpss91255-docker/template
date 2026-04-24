@@ -250,6 +250,31 @@ teardown() {
 }
 
 # ════════════════════════════════════════════════════════════════════
+# _validate_runtime
+# ════════════════════════════════════════════════════════════════════
+
+@test "_validate_runtime accepts empty (treated as off)" {
+  _validate_runtime ""
+}
+
+@test "_validate_runtime accepts auto / nvidia / off" {
+  _validate_runtime auto
+  _validate_runtime nvidia
+  _validate_runtime off
+}
+
+@test "_validate_runtime rejects unknown values" {
+  run _validate_runtime "NVIDIA"   # case-sensitive
+  [ "${status}" -ne 0 ]
+  run _validate_runtime "runc"     # not a supported override
+  [ "${status}" -ne 0 ]
+  run _validate_runtime "sysbox"
+  [ "${status}" -ne 0 ]
+  run _validate_runtime "true"
+  [ "${status}" -ne 0 ]
+}
+
+# ════════════════════════════════════════════════════════════════════
 # _warn_if_lang_rejected — TUI msgbox when --lang fell back to "en"
 # ════════════════════════════════════════════════════════════════════
 #
