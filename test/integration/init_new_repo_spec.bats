@@ -172,7 +172,8 @@ teardown() {
   assert [ ! -f "${REPO_DIR}/template/VERSION" ]
   assert [ ! -f "${REPO_DIR}/.template_version" ]
   run cat "${REPO_DIR}/template/.version"
-  assert_output --regexp '^v[0-9]+\.[0-9]+\.[0-9]+$'
+  # Accept semver with optional pre-release suffix (e.g. v0.10.0-rc1).
+  assert_output --regexp '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
 }
 
 @test "new repo: re-running init.sh on the result is idempotent" {

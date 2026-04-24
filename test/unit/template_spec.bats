@@ -627,9 +627,12 @@ _stage_lint_layout() {
 # ════════════════════════════════════════════════════════════════════
 
 @test ".version file exists in template root" {
+  # Semver with optional pre-release (e.g. v0.10.0-rc1). Accepts plain
+  # `vX.Y.Z` and `vX.Y.Z-<identifiers>` per semver §9 so the RC release
+  # workflow doesn't fail on the CHANGELOG self-check.
   assert [ -f /source/.version ]
   run cat /source/.version
-  assert_output --regexp '^v[0-9]+\.[0-9]+\.[0-9]+$'
+  assert_output --regexp '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
 }
 
 @test "upgrade.sh reads version from template/.version" {
