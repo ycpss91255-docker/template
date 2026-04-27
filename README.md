@@ -255,6 +255,35 @@ following changed since last setup:
 
 Re-run with `--setup` to regenerate `.env` + `compose.yaml`.
 
+### setup.sh subcommands (v0.11.0+)
+
+`setup.sh` is a git-style backend with explicit subcommands. The build / run / TUI scripts call it for you; invoke directly for scripted / non-interactive use:
+
+| Subcommand | Use |
+|---|---|
+| `apply` | Regenerate `.env` + `compose.yaml` from setup.conf + system detection |
+| `check-drift` | Exit 0 in-sync / 1 drifted (drift descriptions on stderr) |
+| `set <section>.<key> <value>` | Write a single key |
+| `show <section>[.<key>]` | Read single key or whole section |
+| `list [<section>]` | INI-style dump |
+| `add <section>.<list> <value>` | Append to list-style section (`mount_*` / `env_*` / `port_*` / …); reuses next empty slot or `max+1` |
+| `remove <section>.<key>` / `<section>.<list> <value>` | Delete by exact key, or by value match |
+| `reset [-y\|--yes]` | Restore template default; archives prior `setup.conf` → `setup.conf.bak`, prior `.env` → `.env.bak` |
+
+Typed keys validate against `_tui_conf.sh` validators (the same ones the TUI uses). `set` / `add` / `remove` / `reset` do **not** regenerate `.env` — chain `apply` afterwards, or `build.sh` / `run.sh` will trigger drift-regen on next invocation.
+
+#### Migration from v0.10.x (BREAKING)
+
+`setup.sh` (no args) and `setup.sh --base-path X --lang Y` (no subcommand) used to silently fall through to `apply`. v0.11.0 removes that fall-through:
+
+| Invocation | Pre-v0.11 | v0.11+ |
+|---|---|---|
+| `setup.sh` | runs apply | prints help, exits 0 |
+| `setup.sh --base-path X --lang Y` | runs apply | exit 1 "Unknown subcommand" |
+| `setup.sh apply [...]` | runs apply | runs apply (unchanged) |
+
+If a downstream repo has custom scripts invoking `setup.sh` directly, prepend `apply`. The bundled `build.sh` / `run.sh` / `init.sh` / `setup_tui.sh` are already updated.
+
 ### Derived artifacts (gitignored)
 
 - `.env` — runtime variable values + `SETUP_*` drift metadata
