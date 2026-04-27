@@ -246,6 +246,35 @@ template；没写的 section 则吃 template 默认。
 
 带 `--setup` 重跑以重新生成 `.env` + `compose.yaml`。
 
+### setup.sh 子命令（v0.11.0+）
+
+`setup.sh` 是 git 风格的后端，提供明确的子命令。build / run / TUI 脚本会代为调用；直接调用适合脚本化 / 非交互场景：
+
+| 子命令 | 用途 |
+|---|---|
+| `apply` | 从 setup.conf + 系统检测重新生成 `.env` + `compose.yaml` |
+| `check-drift` | 同步返回 0、漂移返回 1（漂移描述输出到 stderr） |
+| `set <section>.<key> <value>` | 写入单个键值 |
+| `show <section>[.<key>]` | 读取单键或整个 section |
+| `list [<section>]` | INI 风格 dump |
+| `add <section>.<list> <value>` | 加到列表型 section（`mount_*` / `env_*` / `port_*` …）；优先填空 slot，否则用 `max+1` |
+| `remove <section>.<key>` / `<section>.<list> <value>` | 按 key 或按值删除 |
+| `reset [-y\|--yes]` | 恢复 template 默认；旧 `setup.conf` → `setup.conf.bak`、旧 `.env` → `.env.bak` |
+
+带类型的键会走 `_tui_conf.sh` 的 validator（与 TUI 同一套）。`set` / `add` / `remove` / `reset` **不**会自动重新生成 `.env` — 需要时自行接 `apply`，或下次 `build.sh` / `run.sh` 检测到 drift 也会自动重新生成。
+
+#### v0.10.x 升级（BREAKING）
+
+`setup.sh`（无参数）与 `setup.sh --base-path X --lang Y`（无子命令）以前会 silently 走到 `apply`。v0.11.0 移除这个 fall-through：
+
+| 调用方式 | v0.11 之前 | v0.11+ |
+|---|---|---|
+| `setup.sh` | 跑 apply | 打印 help，exit 0 |
+| `setup.sh --base-path X --lang Y` | 跑 apply | exit 1「Unknown subcommand」 |
+| `setup.sh apply [...]` | 跑 apply | 跑 apply（不变） |
+
+下游 repo 若有自定脚本直接调用 `setup.sh`，前面加 `apply`。template 内附的 `build.sh` / `run.sh` / `init.sh` / `setup_tui.sh` 都已更新。
+
 ### 衍生文件（gitignored）
 
 - `.env` — runtime 变量 + `SETUP_*` drift metadata

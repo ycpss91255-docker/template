@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **GitHub Actions runtime bumped to Node 24** via dependabot batch (#111 / #112 / #113 / #114 / #115). Affects every reusable workflow downstream repos call:
+  - `actions/checkout` v4 → v6 (#111)
+  - `codecov/codecov-action` v5 → v6 (#112)
+  - `softprops/action-gh-release` v2 → v3 (#113)
+  - `docker/setup-buildx-action` v3 → v4 (#114) — also drops deprecated `install` input (we never used it)
+  - `docker/build-push-action` v6 → v7 (#115) — also drops `DOCKER_BUILD_NO_SUMMARY` / `DOCKER_BUILD_EXPORT_RETENTION_DAYS` envs (we never set them)
+
+  Requires Actions Runner ≥ v2.327.1, which GitHub-hosted runners have shipped since 2025-09. Self-hosted fleets must update before pinning to `@v0.11.0`+.
+
 ## [v0.11.0-rc1] - 2026-04-27
 
 Release candidate for v0.11.0. Closes Phase B of #49 — the `setup.sh` CLI is now a git-style backend with `apply` / `check-drift` / `set` / `show` / `list` / `add` / `remove` / `reset` subcommands. **BREAKING** for any caller invoking `setup.sh` without a subcommand.
