@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `softprops/action-gh-release` v2 → v3 (#113)
   - `docker/setup-buildx-action` v3 → v4 (#114) — also drops deprecated `install` input (we never used it)
   - `docker/build-push-action` v6 → v7 (#115) — also drops `DOCKER_BUILD_NO_SUMMARY` / `DOCKER_BUILD_EXPORT_RETENTION_DAYS` envs (we never set them)
+  - `docker/setup-qemu-action` v3 → v4 — manual bump (dependabot's batch hit `open-pull-requests-limit: 5`; picked up here so v0.11.0's Node 24 coverage is complete)
+  - `docker/login-action` v3 → v4 — same reason as above
 
   Requires Actions Runner ≥ v2.327.1, which GitHub-hosted runners have shipped since 2025-09. Self-hosted fleets must update before pinning to `@v0.11.0`+.
 
