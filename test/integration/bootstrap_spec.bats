@@ -14,7 +14,7 @@ setup() {
   bats_load_library "bats-support"
   bats_load_library "bats-assert"
 
-  BOOTSTRAP="/source/bootstrap.sh"
+  BOOTSTRAP="${BATS_TEST_DIRNAME}/../../bootstrap.sh"
 
   BASE_WORK="${BATS_TEST_TMPDIR}/base_work"
   BASE_BARE="${BATS_TEST_TMPDIR}/base.git"
