@@ -60,19 +60,32 @@ main() {
 
   _log "Bootstrapping: snapshot ${snapshot_ver} -> target ${target_ver}"
 
-  _log "Step 1/4: remove snapshot ${TEMPLATE_REL}/"
-  git rm -r -q "${TEMPLATE_REL}/"
-  git commit -q -m "chore: remove ${TEMPLATE_REL} snapshot for subtree re-add"
+  _log "Step 1/5: remove template-specific files"
+  local _template_files=(
+    README.md
+    doc/
+    .github/
+    test/
+  )
+  for _f in "${_template_files[@]}"; do
+    if git ls-files --error-unmatch "${_f}" &>/dev/null; then
+      git rm -r -q "${_f}"
+    fi
+  done
 
-  _log "Step 2/4: git subtree add ${TEMPLATE_REL}/ @ ${target_ver}"
+  _log "Step 2/5: remove snapshot ${TEMPLATE_REL}/"
+  git rm -r -q "${TEMPLATE_REL}/"
+  git commit -q -m "chore: remove template files + ${TEMPLATE_REL} snapshot for subtree re-add"
+
+  _log "Step 3/5: git subtree add ${TEMPLATE_REL}/ @ ${target_ver}"
   git subtree add --prefix="${TEMPLATE_REL}" \
     "${DEFAULT_REMOTE}" "${target_ver}" --squash \
     -m "chore: add ${TEMPLATE_REL} subtree ${target_ver}"
 
-  _log "Step 3/4: run init.sh"
+  _log "Step 4/5: run init.sh"
   "./${TEMPLATE_REL}/init.sh"
 
-  _log "Step 4/4: remove ${SCRIPT_NAME}"
+  _log "Step 5/5: remove ${SCRIPT_NAME}"
   git rm -q "${SCRIPT_NAME}"
   git commit -q -m "chore: remove ${SCRIPT_NAME} (bootstrap complete)"
 

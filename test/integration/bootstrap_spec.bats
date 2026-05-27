@@ -72,6 +72,17 @@ _seed_template_repo() {
   cp "${BOOTSTRAP}" "${REPO_DIR}/bootstrap.sh"
   chmod +x "${REPO_DIR}/bootstrap.sh"
 
+  # Template-specific files (should be cleaned up by bootstrap)
+  echo "# Template README" > "${REPO_DIR}/README.md"
+  mkdir -p "${REPO_DIR}/doc"
+  echo "# Template zh-TW" > "${REPO_DIR}/doc/README.zh-TW.md"
+  echo "# Template zh-CN" > "${REPO_DIR}/doc/README.zh-CN.md"
+  echo "# Template ja" > "${REPO_DIR}/doc/README.ja.md"
+  mkdir -p "${REPO_DIR}/.github/workflows"
+  echo "name: CI" > "${REPO_DIR}/.github/workflows/ci.yaml"
+  mkdir -p "${REPO_DIR}/test/integration"
+  echo "# stub" > "${REPO_DIR}/test/integration/bootstrap_spec.bats"
+
   git -C "${REPO_DIR}" add -A
   git -C "${REPO_DIR}" commit -q -m "initial (from template)"
 }
@@ -93,8 +104,12 @@ _seed_template_repo() {
   # init.sh was executed (stub exits 0; real init.sh would create scaffolding)
   assert_output --partial "init.sh"
 
-  # bootstrap.sh removed itself
+  # bootstrap.sh and all template-specific files removed
   [ ! -f "bootstrap.sh" ]
+  [ ! -f ".github/workflows/ci.yaml" ]
+  [ ! -f "test/integration/bootstrap_spec.bats" ]
+  [ ! -d "doc" ]
+  [ ! -f "README.md" ]
 
   # Subsequent subtree pull works (proving subtree history is intact)
   run git subtree pull --prefix=.base "file://${BASE_BARE}" v0.9.7 --squash \
