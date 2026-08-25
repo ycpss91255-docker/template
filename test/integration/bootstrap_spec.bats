@@ -203,6 +203,10 @@ _seed_template_repo() {
   # Step 4 ran the dist init.sh, and step 5 was reached (self-delete).
   [ "$(cat init-ran.txt)" = "dist" ]
   [ ! -f "bootstrap.sh" ]
+
+  # The dist layout exposes upgrade under the `base` command group.
+  assert_output --partial "Future upgrades: just base upgrade"
+  refute_output --partial "make upgrade"
 }
 
 @test "bootstrap.sh v0.9.5 (pre-dist layout): still resolves the root init.sh" {
@@ -216,6 +220,10 @@ _seed_template_repo() {
 
   [ "$(cat init-ran.txt)" = "root" ]
   [ ! -f "bootstrap.sh" ]
+
+  # The pre-dist layout exposes upgrade at the top level.
+  assert_output --partial "Future upgrades: just upgrade"
+  refute_output --partial "make upgrade"
 }
 
 @test "bootstrap.sh prefers the dist init.sh when a tag ships both layouts" {
@@ -282,6 +290,10 @@ _seed_template_repo() {
   run env TEMPLATE_REMOTE="file://${BASE_BARE}" ./bootstrap.sh v0.9.7
   assert_failure
   assert_output --partial "already bootstrapped"
+
+  # Points at the upgrade entry the repo actually has (v0.9.7 is pre-dist).
+  assert_output --partial "just upgrade"
+  refute_output --partial "make upgrade"
 }
 
 # ── Post-bootstrap: subtree pull (upgrade path) works ─────────────────────
