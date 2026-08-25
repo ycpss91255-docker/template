@@ -36,13 +36,38 @@ _resolve_version() {
     printf '%s' "${_requested}"
     return
   fi
+  # ls-remote lists a peeled `<tag>^{}` row for every annotated tag, and
+  # version-sort ranks that row above the tag itself -- `head -1` on the
+  # raw listing yields `vX.Y.Z^{}`, which is not a ref `git subtree add`
+  # accepts. Strip the peel marker, then take the highest tag that is not
+  # a semver pre-release (`vX.Y.Z-rc1`), which is never a bootstrap
+  # target. awk consumes the whole listing and always exits 0, so an empty
+  # result reaches the explicit error below instead of tripping pipefail.
   local _latest
   _latest="$(git ls-remote --tags --sort=-v:refname "${DEFAULT_REMOTE}" 'v*' \
-    | head -1 | sed 's|.*refs/tags/||')"
+    | awk -F'refs/tags/' '
+        NF > 1 && !latest {
+          tag = $2
+          sub(/\^\{\}$/, "", tag)
+          if (tag !~ /-/) { latest = tag }
+        }
+        END { print latest }')"
   if [[ -z "${_latest}" ]]; then
     _error "could not determine latest tag from ${DEFAULT_REMOTE}"
   fi
   printf '%s' "${_latest}"
+}
+
+# The upgrade entry point moved with the layout: pre-dist repos expose
+# `just upgrade` at the top level, v0.42.0+ repos expose it under the
+# `base` command group. Probe the subtree rather than naming one, for the
+# same reason _run_init does.
+_upgrade_hint() {
+  if [[ -d "${TEMPLATE_REL}/dist" ]]; then
+    printf '%s' "just base upgrade"
+  else
+    printf '%s' "just upgrade"
+  fi
 }
 
 # Resolve and run the subtree's init.sh. Fails naming every path tried,
@@ -64,7 +89,7 @@ _run_init() {
 
 _require_not_bootstrapped() {
   if git log --all --format=%B | grep -q "git-subtree-dir: ${TEMPLATE_REL}"; then
-    _error "already bootstrapped — ${TEMPLATE_REL}/ has subtree history. Use 'make upgrade' instead."
+    _error "already bootstrapped — ${TEMPLATE_REL}/ has subtree history. Use '$(_upgrade_hint)' instead."
   fi
 }
 
@@ -118,7 +143,7 @@ main() {
   git commit -q -m "chore: remove ${SCRIPT_NAME} (bootstrap complete)"
 
   _log "Done! Bootstrapped with ${TEMPLATE_REL} @ ${target_ver}"
-  _log "Future upgrades: make upgrade [VERSION]"
+  _log "Future upgrades: $(_upgrade_hint) [VERSION]"
 }
 
 main "$@"
