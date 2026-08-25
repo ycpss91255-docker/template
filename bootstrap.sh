@@ -5,6 +5,17 @@ readonly SCRIPT_NAME="bootstrap.sh"
 readonly TEMPLATE_REL=".base"
 readonly DEFAULT_REMOTE="${TEMPLATE_REMOTE:-https://github.com/ycpss91255-docker/base.git}"
 
+# init.sh locations inside the subtree, newest layout first. bootstrap.sh
+# is pinned to nothing -- it is whatever sits on the template repo's main
+# when someone creates a repo -- while the base tag it bootstraps is
+# arbitrary, so the path is resolved rather than named. base v0.42.0 moved
+# init.sh under dist/ (ADR-00000011 section 8 / ADR-00000006 Region A);
+# older tags still keep it at the subtree root.
+readonly INIT_CANDIDATES=(
+  "dist/script/base/init.sh"
+  "init.sh"
+)
+
 _log() { printf '[%s] INFO: %s\n' "${SCRIPT_NAME}" "$*"; }
 _error() { printf '[%s] ERROR: %s\n' "${SCRIPT_NAME}" "$*" >&2; exit 1; }
 
@@ -32,6 +43,23 @@ _resolve_version() {
     _error "could not determine latest tag from ${DEFAULT_REMOTE}"
   fi
   printf '%s' "${_latest}"
+}
+
+# Resolve and run the subtree's init.sh. Fails naming every path tried,
+# so a future layout move reports what it looked for instead of bash's
+# bare "No such file or directory".
+_run_init() {
+  local _candidate
+  local -a _tried=()
+  for _candidate in "${INIT_CANDIDATES[@]}"; do
+    _tried+=("${TEMPLATE_REL}/${_candidate}")
+    if [[ -f "${TEMPLATE_REL}/${_candidate}" ]]; then
+      _log "  using ${TEMPLATE_REL}/${_candidate}"
+      "./${TEMPLATE_REL}/${_candidate}"
+      return
+    fi
+  done
+  _error "no init.sh found in the ${TEMPLATE_REL}/ subtree. Tried: ${_tried[*]}"
 }
 
 _require_not_bootstrapped() {
@@ -83,7 +111,7 @@ main() {
     -m "chore: add ${TEMPLATE_REL} subtree ${target_ver}"
 
   _log "Step 4/5: run init.sh"
-  "./${TEMPLATE_REL}/init.sh"
+  _run_init
 
   _log "Step 5/5: remove ${SCRIPT_NAME}"
   git rm -q "${SCRIPT_NAME}"
