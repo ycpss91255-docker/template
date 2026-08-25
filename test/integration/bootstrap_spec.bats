@@ -2,11 +2,16 @@
 #
 # Integration tests for bootstrap.sh.
 #
-# Fixture: a bare "base" remote seeded with two tags (v0.9.5, v0.9.7),
-# and a repo that simulates what GitHub Template produces (files copied
-# without git history — no subtree merge metadata).
+# Fixture: a bare "base" remote seeded with tags that span both base
+# layouts, and a repo that simulates what GitHub Template produces (files
+# copied without git history — no subtree merge metadata).
 # Tests drive the real bootstrap.sh against this fake remote and assert
 # the resulting git state + working tree.
+#
+# The `init.sh` stubs each write a marker file into the repo root, so the
+# assertions prove which script actually ran rather than that bootstrap.sh
+# merely mentions one (asserting on the text is how base#916 stayed
+# invisible).
 
 bats_require_minimum_version 1.5.0
 
@@ -26,32 +31,68 @@ setup() {
 
 # ── Fixture helpers ─────────────────────────────────────────────────────────
 
+# Write an init.sh stub that records, in the repo it is run from, which
+# layout it was resolved from.
+_write_init_stub() {
+  local _rel="$1" _layout="$2"
+  mkdir -p "${BASE_WORK}/$(dirname -- "${_rel}")"
+  cat > "${BASE_WORK}/${_rel}" <<EOF
+#!/usr/bin/env bash
+echo "${_layout}" > init-ran.txt
+EOF
+  chmod +x "${BASE_WORK}/${_rel}"
+}
+
+_tag_base_remote() {
+  local _tag="$1"
+  echo "${_tag}" > "${BASE_WORK}/.version"
+  git -C "${BASE_WORK}" add -A
+  git -C "${BASE_WORK}" commit -q -m "${_tag}"
+  git -C "${BASE_WORK}" tag "${_tag}"
+}
+
+# Tag timeline, oldest first. It deliberately spans both base layouts,
+# because "works against the newest tag" is the assumption base#916 broke:
+#
+#   v0.9.0  malformed   no init.sh anywhere
+#   v0.9.5  pre-dist    init.sh at the subtree root
+#   v0.9.7  pre-dist    + a new file (used by the subtree-pull tests)
+#   v0.9.9  both        root init.sh AND dist/script/base/init.sh
+#   v0.10.0 dist-only   dist/script/base/init.sh (mirrors base v0.42.0)
+#
+# v0.10.0 is the highest tag, so the no-argument run resolves to it.
 _seed_base_remote() {
   mkdir -p "${BASE_WORK}/script/docker/lib"
   git -C "${BASE_WORK}" init -q -b main
   git -C "${BASE_WORK}" config user.email t@t
   git -C "${BASE_WORK}" config user.name t
 
-  # v0.9.5
-  echo "v0.9.5" > "${BASE_WORK}/.version"
-  printf '#!/usr/bin/env bash\nexit 0\n' > "${BASE_WORK}/init.sh"
-  printf '#!/usr/bin/env bash\nexit 0\n' > "${BASE_WORK}/script/docker/setup.sh"
+  # v0.9.0 — a tag carrying neither layout.
   printf '#!/usr/bin/env bash\nexit 0\n' > "${BASE_WORK}/upgrade.sh"
-  chmod +x "${BASE_WORK}/init.sh" "${BASE_WORK}/script/docker/setup.sh" "${BASE_WORK}/upgrade.sh"
-  git -C "${BASE_WORK}" add -A
-  git -C "${BASE_WORK}" commit -q -m "v0.9.5"
-  git -C "${BASE_WORK}" tag v0.9.5
+  chmod +x "${BASE_WORK}/upgrade.sh"
+  _tag_base_remote v0.9.0
 
-  # v0.9.7
-  echo "v0.9.7" > "${BASE_WORK}/.version"
+  # v0.9.5 — pre-dist layout.
+  _write_init_stub "init.sh" "root"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "${BASE_WORK}/script/docker/setup.sh"
+  chmod +x "${BASE_WORK}/script/docker/setup.sh"
+  _tag_base_remote v0.9.5
+
+  # v0.9.7 — pre-dist layout with an extra file.
   printf '#!/usr/bin/env bash\nexit 0\n' > "${BASE_WORK}/script/docker/new_script.sh"
   chmod +x "${BASE_WORK}/script/docker/new_script.sh"
-  git -C "${BASE_WORK}" add -A
-  git -C "${BASE_WORK}" commit -q -m "v0.9.7"
-  git -C "${BASE_WORK}" tag v0.9.7
+  _tag_base_remote v0.9.7
+
+  # v0.9.9 — transitional: both layouts shipped at once.
+  _write_init_stub "dist/script/base/init.sh" "dist"
+  _tag_base_remote v0.9.9
+
+  # v0.10.0 — dist layout only, as of base v0.42.0.
+  git -C "${BASE_WORK}" rm -q "init.sh"
+  _tag_base_remote v0.10.0
 
   git init --bare -q "${BASE_BARE}"
-  git -C "${BASE_WORK}" push -q "${BASE_BARE}" v0.9.5 v0.9.7 main
+  git -C "${BASE_WORK}" push -q "${BASE_BARE}" --tags main
 }
 
 # Simulate GitHub Template: copy .base/ files into a fresh repo with
@@ -101,8 +142,10 @@ _seed_template_repo() {
   # New content from v0.9.7 arrived
   [ -f ".base/script/docker/new_script.sh" ]
 
-  # init.sh was executed (stub exits 0; real init.sh would create scaffolding)
+  # init.sh was executed (the stub drops a marker; the real init.sh would
+  # create the scaffolding)
   assert_output --partial "init.sh"
+  [ "$(cat init-ran.txt)" = "root" ]
 
   # bootstrap.sh and all template-specific files removed
   [ ! -f "bootstrap.sh" ]
@@ -119,16 +162,74 @@ _seed_template_repo() {
 
 # ── No-arg: queries remote for latest tag ──────────────────────────────────
 
+# The documented default path. It resolves to the newest tag, which today
+# carries the dist layout — the exact combination base#916 broke.
 @test "bootstrap.sh (no arg): picks latest tag from remote" {
   cd "${REPO_DIR}"
 
   run env TEMPLATE_REMOTE="file://${BASE_BARE}" ./bootstrap.sh
   assert_success
 
-  # Should have picked v0.9.7 (latest semver tag)
-  [ "$(cat .base/.version)" = "v0.9.7" ]
-  [ -f ".base/script/docker/new_script.sh" ]
+  # Should have picked v0.10.0 (latest semver tag)
+  [ "$(cat .base/.version)" = "v0.10.0" ]
+  [ "$(cat init-ran.txt)" = "dist" ]
   [ ! -f "bootstrap.sh" ]
+}
+
+# ── init.sh path resolution across base layouts ────────────────────────────
+
+@test "bootstrap.sh v0.10.0 (dist layout): resolves dist/script/base/init.sh" {
+  cd "${REPO_DIR}"
+
+  run env TEMPLATE_REMOTE="file://${BASE_BARE}" ./bootstrap.sh v0.10.0
+  assert_success
+
+  [ "$(cat .base/.version)" = "v0.10.0" ]
+  [ ! -f ".base/init.sh" ]
+  [ -f ".base/dist/script/base/init.sh" ]
+
+  # Step 4 ran the dist init.sh, and step 5 was reached (self-delete).
+  [ "$(cat init-ran.txt)" = "dist" ]
+  [ ! -f "bootstrap.sh" ]
+}
+
+@test "bootstrap.sh v0.9.5 (pre-dist layout): still resolves the root init.sh" {
+  cd "${REPO_DIR}"
+
+  run env TEMPLATE_REMOTE="file://${BASE_BARE}" ./bootstrap.sh v0.9.5
+  assert_success
+
+  [ "$(cat .base/.version)" = "v0.9.5" ]
+  [ ! -d ".base/dist" ]
+
+  [ "$(cat init-ran.txt)" = "root" ]
+  [ ! -f "bootstrap.sh" ]
+}
+
+@test "bootstrap.sh prefers the dist init.sh when a tag ships both layouts" {
+  cd "${REPO_DIR}"
+
+  run env TEMPLATE_REMOTE="file://${BASE_BARE}" ./bootstrap.sh v0.9.9
+  assert_success
+
+  [ -f ".base/init.sh" ]
+  [ -f ".base/dist/script/base/init.sh" ]
+  [ "$(cat init-ran.txt)" = "dist" ]
+  [ ! -f "bootstrap.sh" ]
+}
+
+@test "bootstrap.sh fails naming both paths when no init.sh exists" {
+  cd "${REPO_DIR}"
+
+  run env TEMPLATE_REMOTE="file://${BASE_BARE}" ./bootstrap.sh v0.9.0
+  assert_failure
+
+  assert_output --partial ".base/dist/script/base/init.sh"
+  assert_output --partial ".base/init.sh"
+
+  # Not bash's bare "No such file or directory".
+  refute_output --partial "No such file or directory"
+  [ ! -f "init-ran.txt" ]
 }
 
 # ── Error guard: no git identity ───────────────────────────────────────────
