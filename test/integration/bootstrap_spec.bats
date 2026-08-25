@@ -43,12 +43,15 @@ EOF
   chmod +x "${BASE_WORK}/${_rel}"
 }
 
+# Tags are annotated, as base's release-tag.sh cuts them: `git ls-remote`
+# then lists an extra peeled `<tag>^{}` row per tag, which version-sort
+# ranks above the tag itself.
 _tag_base_remote() {
   local _tag="$1"
   echo "${_tag}" > "${BASE_WORK}/.version"
   git -C "${BASE_WORK}" add -A
   git -C "${BASE_WORK}" commit -q -m "${_tag}"
-  git -C "${BASE_WORK}" tag "${_tag}"
+  git -C "${BASE_WORK}" tag -a "${_tag}" -m "${_tag}"
 }
 
 # Tag timeline, oldest first. It deliberately spans both base layouts,
@@ -59,8 +62,10 @@ _tag_base_remote() {
 #   v0.9.7  pre-dist    + a new file (used by the subtree-pull tests)
 #   v0.9.9  both        root init.sh AND dist/script/base/init.sh
 #   v0.10.0 dist-only   dist/script/base/init.sh (mirrors base v0.42.0)
+#   v0.10.1-rc1         a pre-release, which is not a bootstrap target
 #
-# v0.10.0 is the highest tag, so the no-argument run resolves to it.
+# v0.10.0 is the highest released tag, so the no-argument run resolves to
+# it -- past the pre-release and past the peeled `^{}` rows.
 _seed_base_remote() {
   mkdir -p "${BASE_WORK}/script/docker/lib"
   git -C "${BASE_WORK}" init -q -b main
@@ -90,6 +95,11 @@ _seed_base_remote() {
   # v0.10.0 — dist layout only, as of base v0.42.0.
   git -C "${BASE_WORK}" rm -q "init.sh"
   _tag_base_remote v0.10.0
+
+  # v0.10.1-rc1 — a release candidate on top of the newest release.
+  printf '#!/usr/bin/env bash\nexit 0\n' > "${BASE_WORK}/script/docker/rc_only.sh"
+  chmod +x "${BASE_WORK}/script/docker/rc_only.sh"
+  _tag_base_remote v0.10.1-rc1
 
   git init --bare -q "${BASE_BARE}"
   git -C "${BASE_WORK}" push -q "${BASE_BARE}" --tags main
@@ -170,8 +180,10 @@ _seed_template_repo() {
   run env TEMPLATE_REMOTE="file://${BASE_BARE}" ./bootstrap.sh
   assert_success
 
-  # Should have picked v0.10.0 (latest semver tag)
+  # Should have picked v0.10.0: the highest released tag, not the peeled
+  # `v0.10.0^{}` row and not the v0.10.1-rc1 pre-release.
   [ "$(cat .base/.version)" = "v0.10.0" ]
+  [ ! -f ".base/script/docker/rc_only.sh" ]
   [ "$(cat init-ran.txt)" = "dist" ]
   [ ! -f "bootstrap.sh" ]
 }
