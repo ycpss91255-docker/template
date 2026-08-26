@@ -1,24 +1,32 @@
 # TEST.md
 
-**14 tests** total.
+**19 tests** total.
 
-## test/smoke/template-v0.41_env.bats (1)
+## test/smoke/template-v0.41_env.bats (2)
 
 | Test | Description |
 |------|-------------|
-| `entrypoint.sh exists and is executable` | Entrypoint check |
+| `entrypoint.sh is installed and executable` | Entrypoint present + executable |
+| `bash is available on PATH` | bash resolvable on PATH |
 
-## test/integration/bootstrap_spec.bats (13)
+## test/integration/bootstrap_spec.bats (17)
 
 Drives the real `bootstrap.sh` against a bare fake `base` remote seeded
 with annotated tags spanning both base layouts (`init.sh` at the subtree
 root pre-v0.42.0, `dist/script/base/init.sh` after), a pre-release tag, a
 tag carrying no `init.sh` at all, and a tag whose `init.sh` creates files
-and then fails. No network access required.
+and then fails. The `init.sh` stubs model the one branch the real script
+takes on the way in -- `-f Dockerfile` as its "already set up" proxy --
+and install the new-repo scaffold on the other side of it, so the specs
+can assert what the resulting repo CONTAINS. No network access required.
 
 | Test | Description |
 |------|-------------|
 | `bootstrap.sh v0.9.7: rebuilds subtree, runs init.sh, self-deletes` | Full run against an explicit pre-dist tag |
+| `bootstrap.sh: init.sh takes the new-repo path, not the existing-repo path` | The `-f Dockerfile` branch: no template Dockerfile survives to invert it |
+| `bootstrap.sh: the new repo has build CI, a changelog and a smoke tree` | What `_create_new_repo` installs is actually present |
+| `bootstrap.sh: the Dockerfile comes from the bootstrapped tag, not the template` | Provenance: byte-identical to the landed subtree's copy |
+| `bootstrap.sh (dist layout): the new-repo scaffold lands there too` | Same two properties against the v0.42.0 layout |
 | `bootstrap.sh (no arg): picks latest tag from remote` | Default path: highest released tag, not the peeled `^{}` row, not a pre-release |
 | `a completed bootstrap dangles no symlink and leaves just --list working` | What "it worked" means to the user: wrappers resolve, `just` runs |
 | `bootstrap.sh v0.10.0 (dist layout): resolves dist/script/base/init.sh` | v0.42.0+ layout reaches step 5 |

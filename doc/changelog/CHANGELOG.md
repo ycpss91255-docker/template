@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Fixed
+- `bootstrap.sh` removes the template's `Dockerfile` along with the other
+  template-specific files. `init.sh` branches on `[[ -f Dockerfile ]]` as
+  its proxy for "this repo has been set up before", so leaving it behind
+  sent every newly created repo down the existing-repo path: no
+  `.github/workflows/main.yaml`, no `doc/changelog/CHANGELOG.md` and no
+  smoke tree. The template's copy is redundant -- `init.sh` installs a
+  `Dockerfile` from the target base tag, while the template's is a
+  snapshot of whatever base shipped when it last synced (#13).
 - `bootstrap.sh` refuses to start when `.base/` holds a file git does not
   track, naming the offending paths. `git rm -r` removes tracked files
   only, so one untracked or ignored file (`.base/.env` and friends, which
@@ -32,4 +40,7 @@
 ### Added
 - Integration coverage for `bootstrap.sh` across both base layouts, a
   pre-release tag, and a subtree carrying no `init.sh`.
+- Integration coverage for what `init.sh` actually installed -- the build
+  CI, the changelog, the smoke tree, and the `Dockerfile`'s provenance --
+  rather than only that `bootstrap.sh` exited 0.
 - Initial release

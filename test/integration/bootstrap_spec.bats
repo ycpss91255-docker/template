@@ -37,17 +37,53 @@ setup() {
 # "every symlink resolves" is the property that separates a working repo
 # from the bricked one issue #10 reported, and nothing asserted it while
 # the stub only wrote a marker file.
+#
+# The stub also mirrors the ONE branch the real init.sh takes on the way
+# in: `-f Dockerfile` is its proxy for "this repo has been set up before".
+# A repo-root Dockerfile therefore sends it down the existing-repo path
+# and the whole new-repo scaffold -- main.yaml, the changelog, the smoke
+# tree, and a Dockerfile copied out of the subtree -- is never installed.
+# The stub records which branch it took in init-mode.txt and creates the
+# same four things on the new-repo side, so a spec can assert what the
+# repo CONTAINS rather than that bootstrap.sh exited 0.
 _write_init_stub() {
-  local _rel="$1" _layout="$2" _justfile="$3"
+  local _rel="$1" _layout="$2" _justfile="$3" _dockerfile="$4"
   mkdir -p "${BASE_WORK}/$(dirname -- "${_rel}")"
   cat > "${BASE_WORK}/${_rel}" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
 echo "${_layout}" > init-ran.txt
+if [[ -f Dockerfile ]]; then
+  echo existing > init-mode.txt
+else
+  echo new > init-mode.txt
+  cp ".base/${_dockerfile}" Dockerfile
+  mkdir -p .github/workflows
+  mkdir -p doc/changelog
+  mkdir -p test/bats/smoke/shared
+  mkdir -p test/bats/smoke/devel-test
+  mkdir -p test/bats/smoke/runtime-test
+  echo "name: Main CI/CD" > .github/workflows/main.yaml
+  echo "# Changelog" > doc/changelog/CHANGELOG.md
+  echo "# smoke" > test/bats/smoke/shared/repo_env.bats
+fi
 ln -sfn ".base/${_justfile}" justfile
 ln -sfn ".base/.hadolint.yaml" .hadolint.yaml
 EOF
   chmod +x "${BASE_WORK}/${_rel}"
+}
+
+# The Dockerfile the subtree ships, at the path the real init.sh copies
+# from for that layout. Content names the tag it was written for, so
+# "the Dockerfile came from the bootstrapped base tag" is checkable
+# rather than merely plausible.
+_write_base_dockerfile() {
+  local _rel="$1" _tag="$2"
+  mkdir -p "${BASE_WORK}/$(dirname -- "${_rel}")"
+  cat > "${BASE_WORK}/${_rel}" <<EOF
+# base Dockerfile shipped at ${_tag}
+FROM scratch
+EOF
 }
 
 # Write an init.sh stub that creates files and THEN fails, the way a real
@@ -129,26 +165,38 @@ _seed_base_remote() {
   _write_failing_init_stub "init.sh"
   _tag_base_remote v0.9.1
 
-  # v0.9.5 — pre-dist layout.
-  _write_init_stub "init.sh" "root" "script/docker/justfile"
+  # v0.9.5 — pre-dist layout. The pre-dist init.sh seeds a new repo's
+  # Dockerfile from `dockerfile/Dockerfile.example`; the dist layout moved
+  # that to `dist/dockerfile/Dockerfile`, so each stub copies from the path
+  # its own layout ships.
+  _write_init_stub "init.sh" "root" "script/docker/justfile" \
+    "dockerfile/Dockerfile.example"
   _write_stub_justfile "script/docker/justfile"
+  _write_base_dockerfile "dockerfile/Dockerfile.example" v0.9.5
   printf 'ignored:\n  - DL3008\n' > "${BASE_WORK}/.hadolint.yaml"
   printf '#!/usr/bin/env bash\nexit 0\n' > "${BASE_WORK}/script/docker/setup.sh"
   chmod +x "${BASE_WORK}/script/docker/setup.sh"
   _tag_base_remote v0.9.5
 
-  # v0.9.7 — pre-dist layout with an extra file.
+  # v0.9.7 — pre-dist layout with an extra file, and a Dockerfile that
+  # differs from v0.9.5's: a repo bootstrapped here must carry THIS tag's
+  # copy, not whichever one the template last vendored.
   printf '#!/usr/bin/env bash\nexit 0\n' > "${BASE_WORK}/script/docker/new_script.sh"
   chmod +x "${BASE_WORK}/script/docker/new_script.sh"
+  _write_base_dockerfile "dockerfile/Dockerfile.example" v0.9.7
   _tag_base_remote v0.9.7
 
   # v0.9.9 — transitional: both layouts shipped at once.
-  _write_init_stub "dist/script/base/init.sh" "dist" "dist/script/docker/justfile"
+  _write_init_stub "dist/script/base/init.sh" "dist" \
+    "dist/script/docker/justfile" "dist/dockerfile/Dockerfile"
   _write_stub_justfile "dist/script/docker/justfile"
+  _write_base_dockerfile "dist/dockerfile/Dockerfile" v0.9.9
   _tag_base_remote v0.9.9
 
   # v0.10.0 — dist layout only, as of base v0.42.0.
   git -C "${BASE_WORK}" rm -q "init.sh"
+  git -C "${BASE_WORK}" rm -q "dockerfile/Dockerfile.example"
+  _write_base_dockerfile "dist/dockerfile/Dockerfile" v0.10.0
   _tag_base_remote v0.10.0
 
   # v0.10.1-rc1 — a release candidate on top of the newest release.
@@ -191,6 +239,15 @@ EOF
 
   # Template-specific files (should be cleaned up by bootstrap)
   echo "# Template README" > "${REPO_DIR}/README.md"
+
+  # The template's vendored Dockerfile: a snapshot of whatever base shipped
+  # when it last synced, and the file init.sh reads as "this repo has been
+  # set up before". Leaving it behind is what sends init.sh down the
+  # existing-repo path, so the fixture has to carry one.
+  cat > "${REPO_DIR}/Dockerfile" <<'DOCKERFILE'
+# template snapshot Dockerfile (stale)
+FROM scratch
+DOCKERFILE
   mkdir -p "${REPO_DIR}/doc"
   echo "# Template zh-TW" > "${REPO_DIR}/doc/README.zh-TW.md"
   echo "# Template zh-CN" > "${REPO_DIR}/doc/README.zh-CN.md"
@@ -227,13 +284,79 @@ EOF
   [ ! -f "bootstrap.sh" ]
   [ ! -f ".github/workflows/ci.yaml" ]
   [ ! -f "test/integration/bootstrap_spec.bats" ]
-  [ ! -d "doc" ]
+  [ ! -f "doc/README.zh-TW.md" ]
   [ ! -f "README.md" ]
 
   # Subsequent subtree pull works (proving subtree history is intact)
   run git subtree pull --prefix=.base "file://${BASE_BARE}" v0.9.7 --squash \
     -m "test: verify subtree pull works"
   assert_success
+}
+
+# ── What init.sh actually installed ────────────────────────────────────────
+#
+# The specs above assert that bootstrap.sh exited 0, that the subtree
+# landed, that no symlink dangles and that `just --list` runs. A repo can
+# satisfy every one of those and still have no build CI, no changelog and
+# no smoke scaffold, because none of them looks at what init.sh installed
+# -- which is exactly how this shipped.
+#
+# init.sh branches on `-f Dockerfile`: a repo-root Dockerfile means
+# "already set up", so it only re-wires symlinks. bootstrap.sh's job is
+# creating a brand-new repo, so every file the template ships that init.sh
+# would install fresh has to be out of the way before init.sh runs -- the
+# Dockerfile most of all, since its mere presence decides the branch.
+
+@test "bootstrap.sh: init.sh takes the new-repo path, not the existing-repo path" {
+  cd "${REPO_DIR}"
+
+  run env TEMPLATE_REMOTE="file://${BASE_BARE}" ./bootstrap.sh v0.9.7
+  assert_success
+
+  [ "$(cat init-mode.txt)" = "new" ]
+}
+
+@test "bootstrap.sh: the new repo has build CI, a changelog and a smoke tree" {
+  cd "${REPO_DIR}"
+
+  run env TEMPLATE_REMOTE="file://${BASE_BARE}" ./bootstrap.sh v0.9.7
+  assert_success
+
+  [ -f ".github/workflows/main.yaml" ]
+  [ -f "doc/changelog/CHANGELOG.md" ]
+  [ -d "test/bats/smoke/shared" ]
+  [ -d "test/bats/smoke/devel-test" ]
+  [ -d "test/bats/smoke/runtime-test" ]
+}
+
+@test "bootstrap.sh: the Dockerfile comes from the bootstrapped tag, not the template" {
+  cd "${REPO_DIR}"
+
+  run env TEMPLATE_REMOTE="file://${BASE_BARE}" ./bootstrap.sh v0.9.7
+  assert_success
+
+  # Byte-identical to the copy the landed subtree ships, and not the
+  # snapshot the template vendored.
+  run diff -u Dockerfile .base/dockerfile/Dockerfile.example
+  assert_success
+  refute_output --partial "template snapshot"
+  grep -q "shipped at v0.9.7" Dockerfile
+}
+
+@test "bootstrap.sh (dist layout): the new-repo scaffold lands there too" {
+  cd "${REPO_DIR}"
+
+  run env TEMPLATE_REMOTE="file://${BASE_BARE}" ./bootstrap.sh v0.10.0
+  assert_success
+
+  [ "$(cat init-mode.txt)" = "new" ]
+  [ -f ".github/workflows/main.yaml" ]
+  [ -f "doc/changelog/CHANGELOG.md" ]
+  [ -d "test/bats/smoke/shared" ]
+
+  run diff -u Dockerfile .base/dist/dockerfile/Dockerfile
+  assert_success
+  grep -q "shipped at v0.10.0" Dockerfile
 }
 
 # ── No-arg: queries remote for latest tag ──────────────────────────────────
@@ -411,6 +534,7 @@ _assert_pre_bootstrap_state() {
   [ -d "doc" ]
   [ -d ".github" ]
   [ -d "test" ]
+  grep -q "template snapshot Dockerfile" Dockerfile
   [ -z "$(_dangling_symlinks)" ]
 }
 
