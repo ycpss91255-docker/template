@@ -32,15 +32,60 @@ setup() {
 # ── Fixture helpers ─────────────────────────────────────────────────────────
 
 # Write an init.sh stub that records, in the repo it is run from, which
-# layout it was resolved from.
+# layout it was resolved from, and re-creates the root symlinks into the
+# subtree the way the real init.sh does. The symlinks are not decoration:
+# "every symlink resolves" is the property that separates a working repo
+# from the bricked one issue #10 reported, and nothing asserted it while
+# the stub only wrote a marker file.
 _write_init_stub() {
-  local _rel="$1" _layout="$2"
+  local _rel="$1" _layout="$2" _justfile="$3"
   mkdir -p "${BASE_WORK}/$(dirname -- "${_rel}")"
   cat > "${BASE_WORK}/${_rel}" <<EOF
 #!/usr/bin/env bash
+set -euo pipefail
 echo "${_layout}" > init-ran.txt
+ln -sfn ".base/${_justfile}" justfile
+ln -sfn ".base/.hadolint.yaml" .hadolint.yaml
 EOF
   chmod +x "${BASE_WORK}/${_rel}"
+}
+
+# Write an init.sh stub that creates files and THEN fails, the way a real
+# init.sh does when it dies partway through seeding a repo. Used by the
+# rollback spec: by the time this exits non-zero, bootstrap.sh has already
+# committed step 2 and landed the subtree, so recovery means undoing a
+# commit AND sweeping what this left behind.
+_write_failing_init_stub() {
+  local _rel="$1"
+  mkdir -p "${BASE_WORK}/$(dirname -- "${_rel}")"
+  cat > "${BASE_WORK}/${_rel}" <<'EOF'
+#!/usr/bin/env bash
+set -uo pipefail
+ln -sfn ".base/script/docker/justfile" justfile
+echo partial > partial-init-output.txt
+echo GENERATED=1 > .env
+echo "init.sh: deliberate failure" >&2
+exit 1
+EOF
+  chmod +x "${BASE_WORK}/${_rel}"
+}
+
+# A justfile the root symlink can point at, so `just --list` is a real
+# check (symlink resolves + the target parses) rather than a tautology.
+_write_stub_justfile() {
+  local _rel="$1"
+  mkdir -p "${BASE_WORK}/$(dirname -- "${_rel}")"
+  cat > "${BASE_WORK}/${_rel}" <<'EOF'
+# Stub container-ops entry point (mirrors .base/script/docker/justfile).
+default:
+    @echo ok
+EOF
+}
+
+# Every symlink under the repo that does not resolve, one per line.
+# `.git` is pruned: git's own internals are not the repo's surface.
+_dangling_symlinks() {
+  find . -path ./.git -prune -o -type l ! -exec test -e {} \; -print
 }
 
 # Tags are annotated, as base's release-tag.sh cuts them: `git ls-remote`
@@ -58,6 +103,7 @@ _tag_base_remote() {
 # because "works against the newest tag" is the assumption base#916 broke:
 #
 #   v0.9.0  malformed   no init.sh anywhere
+#   v0.9.1  pre-dist    an init.sh that creates files and then FAILS
 #   v0.9.5  pre-dist    init.sh at the subtree root
 #   v0.9.7  pre-dist    + a new file (used by the subtree-pull tests)
 #   v0.9.9  both        root init.sh AND dist/script/base/init.sh
@@ -77,8 +123,16 @@ _seed_base_remote() {
   chmod +x "${BASE_WORK}/upgrade.sh"
   _tag_base_remote v0.9.0
 
+  # v0.9.1 — an init.sh that dies after creating files. v0.9.5 below
+  # replaces it with the working stub, so only a run that names this tag
+  # explicitly sees the failure.
+  _write_failing_init_stub "init.sh"
+  _tag_base_remote v0.9.1
+
   # v0.9.5 — pre-dist layout.
-  _write_init_stub "init.sh" "root"
+  _write_init_stub "init.sh" "root" "script/docker/justfile"
+  _write_stub_justfile "script/docker/justfile"
+  printf 'ignored:\n  - DL3008\n' > "${BASE_WORK}/.hadolint.yaml"
   printf '#!/usr/bin/env bash\nexit 0\n' > "${BASE_WORK}/script/docker/setup.sh"
   chmod +x "${BASE_WORK}/script/docker/setup.sh"
   _tag_base_remote v0.9.5
@@ -89,7 +143,8 @@ _seed_base_remote() {
   _tag_base_remote v0.9.7
 
   # v0.9.9 — transitional: both layouts shipped at once.
-  _write_init_stub "dist/script/base/init.sh" "dist"
+  _write_init_stub "dist/script/base/init.sh" "dist" "dist/script/docker/justfile"
+  _write_stub_justfile "dist/script/docker/justfile"
   _tag_base_remote v0.9.9
 
   # v0.10.0 — dist layout only, as of base v0.42.0.
@@ -122,6 +177,17 @@ _seed_template_repo() {
   # Place bootstrap.sh from the source under test
   cp "${BOOTSTRAP}" "${REPO_DIR}/bootstrap.sh"
   chmod +x "${REPO_DIR}/bootstrap.sh"
+
+  # The template's managed .gitignore block. It is fixture, not decoration:
+  # the paths `just setup` / `just build` generate are IGNORED, which is
+  # precisely why `git rm -r .base/` leaves them behind and why the specs
+  # below can distinguish "untracked" from "ignored" (issue #10).
+  cat > "${REPO_DIR}/.gitignore" <<'EOF'
+# managed by template (do not remove)
+.env
+.env.generated
+compose.yaml
+EOF
 
   # Template-specific files (should be cleaned up by bootstrap)
   echo "# Template README" > "${REPO_DIR}/README.md"
@@ -186,6 +252,25 @@ _seed_template_repo() {
   [ ! -f ".base/script/docker/rc_only.sh" ]
   [ "$(cat init-ran.txt)" = "dist" ]
   [ ! -f "bootstrap.sh" ]
+}
+
+# What "it worked" actually means to the person who just created the repo:
+# the wrappers resolve and the entry point they type next runs. Issue #10's
+# bricked repo also had nine dangling symlinks and a `just` that could not
+# even list its recipes, and no spec noticed, because exit status was all
+# anything asserted.
+@test "a completed bootstrap dangles no symlink and leaves just --list working" {
+  cd "${REPO_DIR}"
+
+  run env TEMPLATE_REMOTE="file://${BASE_BARE}" ./bootstrap.sh
+  assert_success
+
+  [ -L "justfile" ]
+  [ -L ".hadolint.yaml" ]
+  [ -z "$(_dangling_symlinks)" ]
+
+  run just --list
+  assert_success
 }
 
 # ── init.sh path resolution across base layouts ────────────────────────────
@@ -294,6 +379,112 @@ _seed_template_repo() {
   # Points at the upgrade entry the repo actually has (v0.9.7 is pre-dist).
   assert_output --partial "just upgrade"
   refute_output --partial "make upgrade"
+}
+
+# ── A failed bootstrap must leave a bootstrappable repo (issue #10) ───────
+#
+# `git rm -r .base/` removes only TRACKED files, so one untracked or
+# ignored file keeps the directory alive, `git subtree add` refuses the
+# existing prefix, and the failure lands AFTER step 2 has committed. The
+# repo was then neither old nor new and `bootstrap.sh` refused to re-run,
+# because the precondition it checks is the snapshot the previous run
+# deleted. Asserting a non-zero exit is what let that ship; these specs
+# assert the repo itself.
+
+# Record what "unchanged" means for the assertions below.
+_record_pre_state() {
+  PRE_HEAD="$(git rev-parse HEAD)"
+  PRE_STATUS="$(git status --porcelain)"
+}
+
+# The repo is exactly as the template shipped it: same commit, no extra
+# commit, snapshot intact, working tree unchanged, and a bootstrap.sh that
+# is both still here and still runnable.
+_assert_pre_bootstrap_state() {
+  [ "$(git rev-parse HEAD)" = "${PRE_HEAD}" ]
+  [ "$(git rev-list --count HEAD)" = "1" ]
+  [ "$(git status --porcelain)" = "${PRE_STATUS}" ]
+  [ "$(cat .base/.version)" = "v0.9.5" ]
+  [ -f ".base/init.sh" ]
+  [ -x "bootstrap.sh" ]
+  [ -f "README.md" ]
+  [ -d "doc" ]
+  [ -d ".github" ]
+  [ -d "test" ]
+  [ -z "$(_dangling_symlinks)" ]
+}
+
+@test "bootstrap.sh refuses when .base/ holds an ignored file, and changes nothing" {
+  cd "${REPO_DIR}"
+
+  # The reported trigger: `just setup` / `just build` before bootstrapping
+  # generates .base/.env, which the managed .gitignore block hides.
+  echo "GENERATED=1" > .base/.env
+  git check-ignore -q .base/.env
+  _record_pre_state
+
+  run env TEMPLATE_REMOTE="file://${BASE_BARE}" ./bootstrap.sh v0.9.7
+  assert_failure
+  assert_output --partial ".base/.env"
+
+  _assert_pre_bootstrap_state
+  # Refusing means refusing: the file is the user's, not ours to delete.
+  [ -f ".base/.env" ]
+
+  # Still runnable — clear the blocker and the same command goes through.
+  rm .base/.env
+  run env TEMPLATE_REMOTE="file://${BASE_BARE}" ./bootstrap.sh v0.9.7
+  assert_success
+  [ "$(cat .base/.version)" = "v0.9.7" ]
+}
+
+@test "bootstrap.sh refuses when .base/ holds an untracked file, and changes nothing" {
+  cd "${REPO_DIR}"
+
+  mkdir -p .base/scratch
+  echo "notes" > .base/scratch/notes.md
+  _record_pre_state
+
+  run env TEMPLATE_REMOTE="file://${BASE_BARE}" ./bootstrap.sh v0.9.7
+  assert_failure
+  assert_output --partial ".base/scratch/notes.md"
+
+  _assert_pre_bootstrap_state
+  [ -f ".base/scratch/notes.md" ]
+}
+
+@test "a failure after step 2 has committed rolls the repo all the way back" {
+  cd "${REPO_DIR}"
+
+  # Two files the user owns, one merely untracked and one ignored. A
+  # rollback sweeps what the aborted run created; these are neither.
+  echo "keep" > keep-me.txt
+  echo "keep" > compose.yaml
+  _record_pre_state
+
+  # v0.9.1's init.sh creates a symlink, a file and an ignored file, then
+  # exits 1 — by which point the step-2 commit and the subtree are in.
+  run env TEMPLATE_REMOTE="file://${BASE_BARE}" ./bootstrap.sh v0.9.1
+  assert_failure
+
+  _assert_pre_bootstrap_state
+  [ ! -d ".base/dist" ]
+
+  # `git reset --hard` restores tracked content and says nothing about new
+  # files; without the sweep these three survive a "restored" repo.
+  [ ! -e "justfile" ]
+  [ ! -e "partial-init-output.txt" ]
+  [ ! -e ".env" ]
+
+  # The user's own files are not collateral.
+  [ "$(cat keep-me.txt)" = "keep" ]
+  [ "$(cat compose.yaml)" = "keep" ]
+
+  # And the documented recovery — run it again — actually works.
+  run env TEMPLATE_REMOTE="file://${BASE_BARE}" ./bootstrap.sh v0.9.7
+  assert_success
+  [ "$(cat .base/.version)" = "v0.9.7" ]
+  [ -z "$(_dangling_symlinks)" ]
 }
 
 # ── Post-bootstrap: subtree pull (upgrade path) works ─────────────────────
