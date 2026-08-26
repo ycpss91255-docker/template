@@ -127,7 +127,8 @@ _read_snapshot_version() {
 #   past the exact files that break the run.
 #
 #   Scope is ${TEMPLATE_REL}/ only. The repo-root files step 1 removes
-#   (README.md, doc/, .github/, test/) have no such failure mode -- a
+#   (README.md, Dockerfile, doc/, .github/, test/) have no such failure
+#   mode -- a
 #   stray file merely survives in a directory nothing later re-creates --
 #   and refusing over one would block a bootstrap for a note the user
 #   dropped in the repo they are creating.
@@ -289,8 +290,24 @@ from and nothing to roll back to. Commit the template files first."
   _log "Bootstrapping: snapshot ${snapshot_ver} -> target ${target_ver}"
 
   _log "Step 1/5: remove template-specific files"
+  #
+  # Dockerfile is on this list for a reason the others are not: init.sh
+  # branches on `[[ -f Dockerfile ]]` as its proxy for "this repo has been
+  # set up before", so leaving the template's copy behind sends it down the
+  # existing-repo path -- and the new-repo scaffold (.github/workflows/
+  # main.yaml, doc/changelog/CHANGELOG.md, test/bats/smoke/) never gets
+  # installed at all.
+  #
+  # Deleting it costs nothing: init.sh's new-repo path copies a Dockerfile
+  # out of the TARGET base tag, whereas the template's is a snapshot of
+  # whatever base shipped when the template last synced. Fixing it here
+  # rather than teaching init.sh a `--new` flag is what makes it work
+  # against every base tag: bootstrap.sh can be pointed at an arbitrary one
+  # (`./bootstrap.sh v0.41.0`), and a tag released before such a flag
+  # existed would ignore it and take the wrong branch anyway.
   local _template_files=(
     README.md
+    Dockerfile
     doc/
     .github/
     test/
