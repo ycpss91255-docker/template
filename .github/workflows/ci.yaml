@@ -5,6 +5,14 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # A base release lands in a different repo, so nothing here fires for it.
+  # Without a schedule, a base change that breaks bootstrap.sh waits for the
+  # next push to this repo -- which may be months, and by then the breakage
+  # is found by whoever tried to create a repo. Off the hour on purpose:
+  # every workflow asking for "weekly" picks 0, and the runner queue shows
+  # it.
+  schedule:
+    - cron: "23 4 * * 1"
 
 jobs:
   test:
@@ -19,3 +27,20 @@ jobs:
 
       - name: Bats integration tests
         run: bats test/integration/bootstrap_spec.bats
+
+  # Separate job, not another step above, for two reasons. The hermetic
+  # suite must stay runnable with no network, and a GitHub outage must not
+  # be reportable as a bootstrap defect -- one red job says which of the two
+  # happened, one red step does not.
+  live-base:
+    name: bootstrap against the live base
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/ycpss91255-docker/test-tools:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bats live-base guard
+        env:
+          BOOTSTRAP_LIVE_BASE: "1"
+        run: bats test/integration/bootstrap_live_spec.bats
